@@ -446,4 +446,30 @@ export default function EconomiaPage() {
                     <p className="text-bvb-muted text-xs">
                       {v.fecha_inicio || '?'} → {v.fecha_fin || '?'}
                     </p>
-     
+                       )}
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button onClick={() => toggleVentana(v.id, v.activa)}
+                    className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded border transition-colors ${
+                      v.activa
+                        ? 'bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30'
+                        : 'bg-bvb-black text-bvb-muted border-bvb-border hover:border-bvb-yellow hover:text-bvb-yellow'
+                    }`}>
+                    {v.activa ? '✓ Activa' : 'Activar'}
+                  </button>
+                  <button onClick={() => deleteVentana(v.id)}
+                    className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors">
+                    Borrar
+                  </button>
+                </div>
+              </div>
+            ))}
+            {ventanas.length === 0 && (
+              <p className="text-bvb-muted text-sm text-center py-6">No hay ventanas de fichajes registradas</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
