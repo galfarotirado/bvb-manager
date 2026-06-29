@@ -72,7 +72,7 @@ export default function PlayerAvatar({ sofifa_id, nombre, posicion, size = 'md' 
         key={sources[idx]}
         src={sources[idx]}
         alt={nombre || ''}
-        className="w-full h-full object-cover"
+        className="w-full h-full object-cover object-top"
         onError={handleError}
       />
     </div>

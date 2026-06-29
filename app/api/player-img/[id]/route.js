@@ -40,15 +40,15 @@ async function cropFaceFromCard(cardBuf) {
     const w = meta.width || 512;
     const h = meta.height || 512;
 
-    // Face area: top ~42% of card, horizontally centered with slight trim
-    const left   = Math.floor(w * 0.13);
-    const top    = Math.floor(h * 0.03);
-    const width  = Math.floor(w * 0.74);
-    const height = Math.floor(h * 0.42);
+    // Face+shoulders area: top ~60% of card, wide crop to avoid over-zoom
+    const left   = Math.floor(w * 0.05);
+    const top    = 0;
+    const width  = Math.floor(w * 0.90);
+    const height = Math.floor(h * 0.60);
 
     return await sharp(buf)
       .extract({ left, top, width, height })
-      .resize(60, 60, { fit: 'cover', position: 'center' })
+      .resize(120, 120, { fit: 'cover', position: 'top' })
       .png()
       .toBuffer();
   } catch {
