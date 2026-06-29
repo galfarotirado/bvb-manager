@@ -1,0 +1,22 @@
+Coloca aquí los escudos de los equipos con el nombre exacto indicado.
+Formato recomendado: PNG con fondo transparente, 120x120px mínimo.
+
+Nombres de archivo:
+- dortmund.png
+- psg.png
+- real-madrid.png
+- fc-barcelona.png
+- liverpool.png
+- arsenal.png
+- bayern-munich.png
+- man-city.png
+- inter-milan.png
+- atletico-madrid.png
+- napoli.png
+- chelsea.png
+- milan.png
+- bilbao.png
+- newcastle.png
+- juventus.png
+- man-united.png
+

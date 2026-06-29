@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>BVB Manager — Descargador de Caras EA FC</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0a0a0a; color:#fff; font-family:'Segoe UI',sans-serif; padding:24px; }
+  h1 { color:#FFE500; font-size:22px; font-weight:900; letter-spacing:2px; text-transform:uppercase; margin-bottom:4px; }
+  p.sub { color:#666; font-size:13px; margin-bottom:24px; }
+  .toolbar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px; align-items:center; }
+  button { padding:10px 20px; border:none; border-radius:8px; font-weight:900; font-size:12px;
+    letter-spacing:1px; text-transform:uppercase; cursor:pointer; transition:opacity .2s; }
+  button:hover { opacity:.85; }
+  #btnAll { background:#FFE500; color:#000; }
+  #btnBVB { background:#1a1a1a; color:#FFE500; border:1.5px solid #FFE500; }
+  #btnStop { background:#333; color:#fff; display:none; }
+  .status { background:#111; border:1px solid #222; border-radius:8px; padding:12px 16px;
+    font-size:13px; color:#aaa; margin-bottom:20px; min-height:42px; }
+  .status b { color:#FFE500; }
+  .progress-bar { height:4px; background:#222; border-radius:2px; margin-top:10px; overflow:hidden; }
+  .progress-fill { height:100%; background:#FFE500; border-radius:2px; transition:width .3s; width:0%; }
+
+  .grid { display:grid; grid-template-columns: repeat(auto-fill,minmax(100px,1fr)); gap:10px; }
+  .card { background:#111; border:1px solid #222; border-radius:10px; padding:10px 8px;
+    text-align:center; cursor:pointer; transition:border-color .2s; position:relative; }
+  .card:hover { border-color:#FFE500; }
+  .card img { width:64px; height:64px; object-fit:cover; border-radius:50%; margin-bottom:6px;
+    background:#1a1a1a; }
+  .card .name { font-size:10px; font-weight:700; color:#ddd; line-height:1.3; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; }
+  .card .ovr { font-size:11px; font-weight:900; margin-top:2px; }
+  .card .team { font-size:9px; color:#555; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .card .badge { position:absolute; top:6px; right:6px; width:14px; height:14px; border-radius:50%;
+    font-size:9px; display:flex; align-items:center; justify-content:center; font-weight:900; }
+  .badge-ok  { background:#22c55e; color:#000; }
+  .badge-err { background:#ef4444; color:#fff; }
+  .badge-load { background:#f59e0b; color:#000; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  .filters { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+  .filter-btn { padding:6px 14px; border-radius:20px; border:1px solid #333; background:transparent;
+    color:#888; font-size:11px; font-weight:700; cursor:pointer; transition:all .2s; }
+  .filter-btn.active { background:#FFE500; color:#000; border-color:#FFE500; }
+
+  .note { background:#1a1a00; border:1px solid #FFE50033; border-radius:8px; padding:12px 16px;
+    font-size:12px; color:#aaa; margin-bottom:20px; line-height:1.6; }
+  .note b { color:#FFE500; }
+  a { color:#FFE500; }
+</style>
+</head>
+<body>
+
+<h1>⚡ Descargador de Caras EA FC</h1>
+<p class="sub">Descarga masiva de fotos de jugadores desde sofifa.com — directamente en tu navegador</p>
+
+<div class="note">
+  <b>📥 Cómo usar este descargador:</b><br>
+  1. Click <b>Descargar todos</b> — usa proxies públicos (corsproxy.io → allorigins → servidor).<br>
+  2. Las fotos se guardan en tu carpeta de Descargas con nombre <b>{sofifa_id}.png</b>.<br>
+  3. Muévelas a <b>bvb-manager/public/players/</b>.<br>
+  4. Las fotos en rojo (✗) no tienen ID registrado o no están en EA FC.<br>
+  <br>
+  <b>⚠️ Si ves muchos errores:</b> El proxy puede tener rate limit. Descarga solo BVB primero, espera 1 min, luego el resto.
+</div>
+
+<div class="status" id="status">Listo. Selecciona un equipo o descarga todos.</div>
+<div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+
+<div class="toolbar" style="margin-top:14px;">
+  <button id="btnAll">⬇ Descargar todos</button>
+  <button id="btnBVB">⬇ Solo BVB</button>
+  <button id="btnStop">⏹ Parar</button>
+  <span style="color:#555;font-size:12px;margin-left:8px;" id="count"></span>
+</div>
+
+<div class="filters" id="filters"></div>
+<div class="grid" id="grid"></div>
+
+<script>
+// ── Todos los jugadores con sofifa_id ──────────────────────────────────────
+// Modifica esta lista si añades jugadores nuevos
+const PLAYERS = [
+  // DORTMUND
+  { id: 257279, name: 'Álex Baena', team: 'DORTMUND', pos: 'DEL', ovr: 84 },
+  { id: 241050, name: 'Alexander Meyer', team: 'DORTMUND', pos: 'POR', ovr: 74 },
+  { id: 259356, name: 'Carney Chukwuemeka', team: 'DORTMUND', pos: 'MC', ovr: 78 },
+  { id: 242516, name: 'Cody Gakpo', team: 'DORTMUND', pos: 'DEL', ovr: 83 },
+  { id: 259716, name: 'Daniel Svensson', team: 'DORTMUND', pos: 'MC', ovr: 79 },
+  { id: 235794, name: 'Eberechi Eze', team: 'DORTMUND', pos: 'MC', ovr: 84 },
+  { id: 235073, name: 'Gregor Kobel', team: 'DORTMUND', pos: 'POR', ovr: 86 },
+  { id: 270964, name: 'Jobe Bellingham', team: 'DORTMUND', pos: 'DEL', ovr: 77 },
+  { id: 251517, name: 'Joško Gvardiol', team: 'DORTMUND', pos: 'DEF', ovr: 85 },
+  { id: 266127, name: 'Lewis Hall', team: 'DORTMUND', pos: 'DEF', ovr: 81 },
+  { id: 83751, name: 'Luca Reggiani', team: 'DORTMUND', pos: 'DEF', ovr: 66 },
+  { id: 222077, name: 'Manuel Locatelli', team: 'DORTMUND', pos: 'MC', ovr: 84 },
+  { id: 204923, name: 'Marcel Sabitzer', team: 'DORTMUND', pos: 'MC', ovr: 81 },
+  { id: 254117, name: 'Maximilian Beier', team: 'DORTMUND', pos: 'DEL', ovr: 80 },
+  { id: 247819, name: 'Nico Schlotterbeck', team: 'DORTMUND', pos: 'DEF', ovr: 86 },
+  { id: 241096, name: 'Sandro Tonali', team: 'DORTMUND', pos: 'MC', ovr: 85 },
+  { id: 215441, name: 'Serhou Guirassy', team: 'DORTMUND', pos: 'DEL', ovr: 85 },
+  { id: 229476, name: 'Waldemar Anton', team: 'DORTMUND', pos: 'DEF', ovr: 83 },
+  { id: 259075, name: 'Yan Couto', team: 'DORTMUND', pos: 'DEF', ovr: 77 },
+  // ARSENAL
+  { id: 246669, name: 'Bukayo Saka', team: 'ARSENAL', pos: 'DEL', ovr: 87 },
+  { id: 210697, name: 'Christian Nørgaard', team: 'ARSENAL', pos: 'MC', ovr: 80 },
+  { id: 220901, name: 'David Raya', team: 'ARSENAL', pos: 'POR', ovr: 87 },
+  { id: 234378, name: 'Declan Rice', team: 'ARSENAL', pos: 'MC', ovr: 88 },
+  { id: 251566, name: 'Gabriel Martinelli', team: 'ARSENAL', pos: 'DEL', ovr: 81 },
+  { id: 272834, name: 'João Neves', team: 'ARSENAL', pos: 'MC', ovr: 88 },
+  { id: 251805, name: 'Jurriën Timber', team: 'ARSENAL', pos: 'DEF', ovr: 84 },
+  { id: 235790, name: 'Kai Havertz', team: 'ARSENAL', pos: 'MC', ovr: 82 },
+  { id: 206585, name: 'Kepa Arrizabalaga', team: 'ARSENAL', pos: 'POR', ovr: 79 },
+  { id: 207421, name: 'Leandro Trossard', team: 'ARSENAL', pos: 'DEL', ovr: 83 },
+  { id: 222665, name: 'Martin Ødegaard', team: 'ARSENAL', pos: 'MC', ovr: 86 },
+  { id: 225193, name: 'Mikel Merino', team: 'ARSENAL', pos: 'MC', ovr: 83 },
+  { id: 264846, name: 'Mosquera', team: 'ARSENAL', pos: 'DEF', ovr: 77 },
+  { id: 254796, name: 'Noni Madueke', team: 'ARSENAL', pos: 'DEL', ovr: 80 },
+  { id: 256197, name: 'Piero Hincapié', team: 'ARSENAL', pos: 'DEF', ovr: 83 },
+  { id: 224196, name: 'Ramy Bensebaini', team: 'ARSENAL', pos: 'DEF', ovr: 79 },
+  { id: 257711, name: 'Riccardo Calafiori', team: 'ARSENAL', pos: 'DEF', ovr: 82 },
+  { id: 241651, name: 'Viktor Gyökeres', team: 'ARSENAL', pos: 'DEL', ovr: 86 },
+  // ATLETICO MADRID
+  { id: 216549, name: 'Alexander Sørloth', team: 'ATLETICO MADRID', pos: 'DEL', ovr: 84 },
+  { id: 194765, name: 'Antoine Griezmann', team: 'ATLETICO MADRID', pos: 'MC', ovr: 85 },
+  { id: 247103, name: 'Dávid Hancko', team: 'ATLETICO MADRID', pos: 'DEF', ovr: 83 },
+  { id: 248243, name: 'Eduardo Camavinga', team: 'ATLETICO MADRID', pos: 'MC', ovr: 81 },
+  { id: 279731, name: 'Gabriel Moscardo', team: 'ATLETICO MADRID', pos: 'MC', ovr: 81 },
+  { id: 200389, name: 'Jan Oblak', team: 'ATLETICO MADRID', pos: 'POR', ovr: 88 },
+  { id: 216460, name: 'José María Giménez', team: 'ATLETICO MADRID', pos: 'DEF', ovr: 83 },
+  { id: 214979, name: 'Juan Musso', team: 'ATLETICO MADRID', pos: 'POR', ovr: 79 },
+  { id: 229891, name: 'Julian Ryerson', team: 'ATLETICO MADRID', pos: 'DEF', ovr: 80 },
+  { id: 277643, name: 'Lamine Yamal', team: 'ATLETICO MADRID', pos: 'DEL', ovr: 89 },
+  { id: 264880, name: 'Loum Tchaouna', team: 'ATLETICO MADRID', pos: 'DEL', ovr: 81 },
+  { id: 266039, name: 'Marc Pubill', team: 'ATLETICO MADRID', pos: 'DEF', ovr: 73 },
+  { id: 233084, name: 'Nahuel Molina', team: 'ATLETICO MADRID', pos: 'DEF', ovr: 79 },
+  { id: 272449, name: 'Pablo Barrios', team: 'ATLETICO MADRID', pos: 'MC', ovr: 82 },
+  { id: 233486, name: 'Robin Le Normand', team: 'ATLETICO MADRID', pos: 'DEF', ovr: 83 },
+  { id: 245371, name: 'Thiago Almada', team: 'ATLETICO MADRID', pos: 'MC', ovr: 79 },
+  { id: 234060, name: 'Yangel Herrera', team: 'ATLETICO MADRID', pos: 'MC', ovr: 79 },
+  // BAYERN MUNICH
+  { id: 275298, name: 'Aleksandar Pavlović', team: 'BAYERN MUNICH', pos: 'MC', ovr: 82 },
+  { id: 234396, name: 'Alphonso Davies', team: 'BAYERN MUNICH', pos: 'DEF', ovr: 83 },
+  { id: 229558, name: 'Dayot Upamecano', team: 'BAYERN MUNICH', pos: 'DEF', ovr: 86 },
+  { id: 236772, name: 'Dominik Szoboszlai', team: 'BAYERN MUNICH', pos: 'MC', ovr: 86 },
+  { id: 226271, name: 'Fabián Ruiz', team: 'BAYERN MUNICH', pos: 'MC', ovr: 85 },
+  { id: 202126, name: 'Harry Kane', team: 'BAYERN MUNICH', pos: 'DEL', ovr: 90 },
+  { id: 234205, name: 'Hiroki Ito', team: 'BAYERN MUNICH', pos: 'DEF', ovr: 78 },
+  { id: 263887, name: 'Jonas Urbig', team: 'BAYERN MUNICH', pos: 'POR', ovr: 77 },
+  { id: 250955, name: 'Josip Stanišić', team: 'BAYERN MUNICH', pos: 'DEF', ovr: 79 },
+  { id: 237086, name: 'Kim Min-jae', team: 'BAYERN MUNICH', pos: 'DEF', ovr: 82 },
+  { id: 225375, name: 'Konrad Laimer', team: 'BAYERN MUNICH', pos: 'MC', ovr: 84 },
+  { id: 236613, name: 'Lennart Grill', team: 'BAYERN MUNICH', pos: 'POR', ovr: 75 },
+  { id: 209658, name: 'Leon Goretzka', team: 'BAYERN MUNICH', pos: 'MC', ovr: 81 },
+  { id: 241084, name: 'Luis Díaz', team: 'BAYERN MUNICH', pos: 'DEL', ovr: 87 },
+  { id: 167495, name: 'Manuel Neuer', team: 'BAYERN MUNICH', pos: 'POR', ovr: 82 },
+  { id: 247827, name: 'Michael Olise', team: 'BAYERN MUNICH', pos: 'DEL', ovr: 89 },
+  { id: 259197, name: 'Nicolas Jackson', team: 'BAYERN MUNICH', pos: 'DEL', ovr: 79 },
+  { id: 263765, name: 'Noah Bischof', team: 'BAYERN MUNICH', pos: 'MC', ovr: 78 },
+  { id: 206113, name: 'Serge Gnabry', team: 'BAYERN MUNICH', pos: 'DEL', ovr: 83 },
+  // BILBAO
+  { id: 259524, name: 'Aitor Paredes', team: 'BILBAO', pos: 'DEF', ovr: 78 },
+  { id: 271034, name: 'Álex Padilla', team: 'BILBAO', pos: 'POR', ovr: 69 },
+  { id: 241049, name: 'Andoni Gorosabel', team: 'BILBAO', pos: 'DEF', ovr: 76 },
+  { id: 212218, name: 'Aymeric Laporte', team: 'BILBAO', pos: 'DEF', ovr: 82 },
+  { id: 248550, name: 'Dani Vivian', team: 'BILBAO', pos: 'DEF', ovr: 84 },
+  { id: 231184, name: 'Gorka Guruzeta', team: 'BILBAO', pos: 'DEL', ovr: 78 },
+  { id: 225523, name: 'Iker Lekue', team: 'BILBAO', pos: 'DEF', ovr: 75 },
+  { id: 216201, name: 'Iñaki Williams', team: 'BILBAO', pos: 'DEL', ovr: 83 },
+  { id: 225201, name: 'Jon Ander Berenguer', team: 'BILBAO', pos: 'MC', ovr: 82 },
+  { id: 226161, name: 'Marcos Llorente', team: 'BILBAO', pos: 'MC', ovr: 84 },
+  { id: 256516, name: 'Nico Williams', team: 'BILBAO', pos: 'DEL', ovr: 86 },
+  { id: 212190, name: 'Niklas Süle', team: 'BILBAO', pos: 'DEF', ovr: 78 },
+  { id: 244675, name: 'Oihan Sancet', team: 'BILBAO', pos: 'MC', ovr: 84 },
+  { id: 238616, name: 'Pedro Neto', team: 'BILBAO', pos: 'DEL', ovr: 82 },
+  { id: 230869, name: 'Unai Simón', team: 'BILBAO', pos: 'POR', ovr: 85 },
+  { id: 270673, name: 'Warren Zaïre-Emery', team: 'BILBAO', pos: 'MC', ovr: 83 },
+  { id: 183512, name: 'Yuri Berchiche', team: 'BILBAO', pos: 'DEF', ovr: 79 },
+  // CHELSEA
+  { id: 268438, name: 'Alejandro Garnacho', team: 'CHELSEA', pos: 'DEL', ovr: 78 },
+  { id: 273018, name: 'Andrey Santos', team: 'CHELSEA', pos: 'MC', ovr: 80 },
+  { id: 257534, name: 'Cole Palmer', team: 'CHELSEA', pos: 'MC', ovr: 86 },
+  { id: 76687, name: 'Estêvão Willian', team: 'CHELSEA', pos: 'DEL', ovr: 79 },
+  { id: 258485, name: 'Filip Jørgensen', team: 'CHELSEA', pos: 'POR', ovr: 77 },
+  { id: 266032, name: 'Jamie Gittens', team: 'CHELSEA', pos: 'DEL', ovr: 78 },
+  { id: 252042, name: 'João Pedro', team: 'CHELSEA', pos: 'DEL', ovr: 82 },
+  { id: 237386, name: 'Kiernan Dewsbury-Hall', team: 'CHELSEA', pos: 'MC', ovr: 78 },
+  { id: 231747, name: 'Kylian Mbappé', team: 'CHELSEA', pos: 'DEL', ovr: 91 },
+  { id: 262859, name: 'Levi Colwill', team: 'CHELSEA', pos: 'DEF', ovr: 80 },
+  { id: 259307, name: 'Malo Gusto', team: 'CHELSEA', pos: 'DEF', ovr: 79 },
+  { id: 239231, name: 'Marc Cucurella', team: 'CHELSEA', pos: 'DEF', ovr: 85 },
+  { id: 256079, name: 'Moisés Caicedo', team: 'CHELSEA', pos: 'MC', ovr: 88 },
+  { id: 278046, name: 'Pau Cubarsí', team: 'CHELSEA', pos: 'DEF', ovr: 83 },
+  { id: 238074, name: 'Reece James', team: 'CHELSEA', pos: 'DEF', ovr: 84 },
+  { id: 228789, name: 'Robert Sánchez', team: 'CHELSEA', pos: 'POR', ovr: 81 },
+  { id: 263620, name: 'Roméo Lavia', team: 'CHELSEA', pos: 'MC', ovr: 78 },
+  { id: 239818, name: 'Rúben Dias', team: 'CHELSEA', pos: 'DEF', ovr: 87 },
+  { id: 230918, name: 'Trevoh Chalobah', team: 'CHELSEA', pos: 'DEF', ovr: 80 },
+  { id: 248695, name: 'Wesley Fofana', team: 'CHELSEA', pos: 'DEF', ovr: 79 },
+  // FC BARCELONA
+  { id: 263578, name: 'Alejandro Balde', team: 'FC BARCELONA', pos: 'DEF', ovr: 83 },
+  { id: 244260, name: 'Dani Olmo', team: 'FC BARCELONA', pos: 'MC', ovr: 84 },
+  { id: 245037, name: 'Eric García', team: 'FC BARCELONA', pos: 'DEF', ovr: 83 },
+  { id: 239085, name: 'Erling Haaland', team: 'FC BARCELONA', pos: 'DEL', ovr: 91 },
+  { id: 277179, name: 'Fermín López', team: 'FC BARCELONA', pos: 'MC', ovr: 83 },
+  { id: 241461, name: 'Ferran Torres', team: 'FC BARCELONA', pos: 'DEL', ovr: 84 },
+  { id: 228702, name: 'Frenkie de Jong', team: 'FC BARCELONA', pos: 'MC', ovr: 87 },
+  { id: 264240, name: 'Gavi', team: 'FC BARCELONA', pos: 'MC', ovr: 83 },
+  { id: 74462, name: 'Gerad Martín', team: 'FC BARCELONA', pos: 'DEF', ovr: 78 },
+  { id: 259532, name: 'Joan García', team: 'FC BARCELONA', pos: 'POR', ovr: 86 },
+  { id: 210514, name: 'João Cancelo', team: 'FC BARCELONA', pos: 'DEF', ovr: 83 },
+  { id: 241486, name: 'Jules Koundé', team: 'FC BARCELONA', pos: 'DEF', ovr: 86 },
+  { id: 272600, name: 'Marc Casado', team: 'FC BARCELONA', pos: 'MC', ovr: 78 },
+  { id: 251854, name: 'Pedri', team: 'FC BARCELONA', pos: 'MC', ovr: 90 },
+  { id: 233419, name: 'Raphinha', team: 'FC BARCELONA', pos: 'DEL', ovr: 89 },
+  { id: 188545, name: 'Robert Lewandowski', team: 'FC BARCELONA', pos: 'DEL', ovr: 86 },
+  { id: 253163, name: 'Ronald Araújo', team: 'FC BARCELONA', pos: 'DEF', ovr: 81 },
+  { id: 186153, name: 'Wojciech Szczęsny', team: 'FC BARCELONA', pos: 'POR', ovr: 83 },
+  // INTER MILAN
+  { id: 237383, name: 'Alessandro Bastoni', team: 'INTER MILAN', pos: 'DEF', ovr: 87 },
+  { id: 259565, name: 'Ante-Yoan Bonny', team: 'INTER MILAN', pos: 'DEL', ovr: 76 },
+  { id: 239807, name: 'Davide Frattesi', team: 'INTER MILAN', pos: 'MC', ovr: 81 },
+  { id: 232756, name: 'Fikayo Tomori', team: 'INTER MILAN', pos: 'DEF', ovr: 81 },
+  { id: 199845, name: 'Francesco Acerbi', team: 'INTER MILAN', pos: 'DEF', ovr: 84 },
+  { id: 208128, name: 'Hakan Çalhanoğlu', team: 'INTER MILAN', pos: 'MC', ovr: 86 },
+  { id: 192883, name: 'Henrikh Mkhitaryan', team: 'INTER MILAN', pos: 'MC', ovr: 83 },
+  { id: 243311, name: 'Josep Martínez', team: 'INTER MILAN', pos: 'POR', ovr: 75 },
+  { id: 251852, name: 'Karim Adeyemi', team: 'INTER MILAN', pos: 'DEL', ovr: 82 },
+  { id: 238227, name: 'Krepin Diouf', team: 'INTER MILAN', pos: 'DEL', ovr: 75 },
+  { id: 231478, name: 'Lautaro Martínez', team: 'INTER MILAN', pos: 'DEL', ovr: 88 },
+  { id: 256632, name: 'Luis Henrique', team: 'INTER MILAN', pos: 'DEL', ovr: 78 },
+  { id: 71181, name: 'Mamadou Doumbia', team: 'INTER MILAN', pos: 'DEF', ovr: 76 },
+  { id: 229237, name: 'Manuel Akanji', team: 'INTER MILAN', pos: 'DEF', ovr: 81 },
+  { id: 228093, name: 'Marcus Thuram', team: 'INTER MILAN', pos: 'DEL', ovr: 85 },
+  { id: 224232, name: 'Nicolò Barella', team: 'INTER MILAN', pos: 'MC', ovr: 87 },
+  { id: 277327, name: 'Pio Esposito', team: 'INTER MILAN', pos: 'DEL', ovr: 74 },
+  { id: 210406, name: 'Piotr Zieliński', team: 'INTER MILAN', pos: 'MC', ovr: 80 },
+  { id: 177683, name: 'Yann Sommer', team: 'INTER MILAN', pos: 'POR', ovr: 87 },
+  // JUVENTUS
+  { id: 258966, name: 'Andrea Cambiaso', team: 'JUVENTUS', pos: 'DEF', ovr: 80 },
+  { id: 246430, name: 'Dušan Vlahović', team: 'JUVENTUS', pos: 'DEL', ovr: 81 },
+  { id: 239763, name: 'Edon Zhegrova', team: 'JUVENTUS', pos: 'DEL', ovr: 79 },
+  { id: 268802, name: 'Fabio Miretti', team: 'JUVENTUS', pos: 'MC', ovr: 75 },
+  { id: 266872, name: 'Federico Gatti', team: 'JUVENTUS', pos: 'DEF', ovr: 80 },
+  { id: 208574, name: 'Filip Kostić', team: 'JUVENTUS', pos: 'DEL', ovr: 80 },
+  { id: 261050, name: 'Francisco Conceição', team: 'JUVENTUS', pos: 'DEL', ovr: 79 },
+  { id: 224422, name: 'Jérémy Boga', team: 'JUVENTUS', pos: 'DEL', ovr: 76 },
+  { id: 243630, name: 'Jonathan David', team: 'JUVENTUS', pos: 'DEL', ovr: 81 },
+  { id: 246191, name: 'Julián Álvarez', team: 'JUVENTUS', pos: 'DEL', ovr: 87 },
+  { id: 277954, name: 'Kenan Yıldız', team: 'JUVENTUS', pos: 'DEL', ovr: 82 },
+  { id: 192985, name: 'Kevin De Bruyne', team: 'JUVENTUS', pos: 'MC', ovr: 87 },
+  { id: 231512, name: 'Lloyd Kelly', team: 'JUVENTUS', pos: 'DEF', ovr: 78 },
+  { id: 243580, name: 'Lois Openda', team: 'JUVENTUS', pos: 'DEL', ovr: 82 },
+  { id: 198009, name: 'Mattia Perin', team: 'JUVENTUS', pos: 'POR', ovr: 78 },
+  { id: 235840, name: 'Michele Di Gregorio', team: 'JUVENTUS', pos: 'POR', ovr: 81 },
+  { id: 255654, name: 'Pierre Kalulu', team: 'JUVENTUS', pos: 'DEF', ovr: 80 },
+  { id: 240679, name: 'Teun Koopmeiners', team: 'JUVENTUS', pos: 'MC', ovr: 80 },
+  { id: 238744, name: 'Weston McKennie', team: 'JUVENTUS', pos: 'MC', ovr: 79 },
+  // LIVERPOOL
+  { id: 239837, name: 'Alexis Mac Allister', team: 'LIVERPOOL', pos: 'MC', ovr: 85 },
+  { id: 212831, name: 'Alisson Becker', team: 'LIVERPOOL', pos: 'POR', ovr: 88 },
+  { id: 192667, name: 'Allan Nyom', team: 'LIVERPOOL', pos: 'DEF', ovr: 65 },
+  { id: 216267, name: 'Andrew Robertson', team: 'LIVERPOOL', pos: 'DEF', ovr: 81 },
+  { id: 264652, name: 'Bradley Barcola', team: 'LIVERPOOL', pos: 'DEL', ovr: 84 },
+  { id: 212198, name: 'Bruno Fernandes', team: 'LIVERPOOL', pos: 'MC', ovr: 88 },
+  { id: 242434, name: 'Curtis Jones', team: 'LIVERPOOL', pos: 'MC', ovr: 80 },
+  { id: 226268, name: 'Federico Dimarco', team: 'LIVERPOOL', pos: 'DEF', ovr: 85 },
+  { id: 262621, name: 'Giorgi Mamardashvili', team: 'LIVERPOOL', pos: 'POR', ovr: 83 },
+  { id: 257289, name: 'Hugo Ekitike', team: 'LIVERPOOL', pos: 'DEL', ovr: 85 },
+  { id: 237678, name: 'Ibrahima Konaté', team: 'LIVERPOOL', pos: 'DEF', ovr: 84 },
+  { id: 253149, name: 'Jeremie Frimpong', team: 'LIVERPOOL', pos: 'DEF', ovr: 82 },
+  { id: 225100, name: 'Joe Gómez', team: 'LIVERPOOL', pos: 'DEF', ovr: 79 },
+  { id: 213331, name: 'Jonathan Tah', team: 'LIVERPOOL', pos: 'DEF', ovr: 87 },
+  { id: 247279, name: 'Lyndon Dykes', team: 'LIVERPOOL', pos: 'DEL', ovr: 72 },
+  { id: 215698, name: 'Mike Maignan', team: 'LIVERPOOL', pos: 'POR', ovr: 87 },
+  { id: 209331, name: 'Mohamed Salah', team: 'LIVERPOOL', pos: 'DEL', ovr: 89 },
+  { id: 251570, name: 'Rayan Cherki', team: 'LIVERPOOL', pos: 'MC', ovr: 84 },
+  { id: 246104, name: 'Ryan Gravenberch', team: 'LIVERPOOL', pos: 'MC', ovr: 86 },
+  // MAN CITY
+  { id: 277031, name: 'Abdukodir Khusanov', team: 'MAN CITY', pos: 'DEF', ovr: 80 },
+  { id: 241236, name: 'Antoine Semenyo', team: 'MAN CITY', pos: 'DEL', ovr: 84 },
+  { id: 218667, name: 'Bernardo Silva', team: 'MAN CITY', pos: 'MC', ovr: 83 },
+  { id: 230621, name: 'Gianluigi Donnarumma', team: 'MAN CITY', pos: 'POR', ovr: 89 },
+  { id: 263063, name: 'James Trafford', team: 'MAN CITY', pos: 'POR', ovr: 77 },
+  { id: 246420, name: 'Jérémy Doku', team: 'MAN CITY', pos: 'DEL', ovr: 83 },
+  { id: 277427, name: 'Kian Reilly', team: 'MAN CITY', pos: 'DEL', ovr: 81 },
+  { id: 241159, name: 'Marc Guéhi', team: 'MAN CITY', pos: 'DEF', ovr: 84 },
+  { id: 207410, name: 'Mateo Kovačić', team: 'MAN CITY', pos: 'MC', ovr: 82 },
+  { id: 253124, name: 'Matheus Nunes', team: 'MAN CITY', pos: 'MC', ovr: 82 },
+  { id: 255069, name: 'Nico González', team: 'MAN CITY', pos: 'MC', ovr: 81 },
+  { id: 256675, name: 'Omar Marmoush', team: 'MAN CITY', pos: 'DEL', ovr: 83 },
+  { id: 237692, name: 'Phil Foden', team: 'MAN CITY', pos: 'MC', ovr: 85 },
+  { id: 231866, name: 'Rodri', team: 'MAN CITY', pos: 'MC', ovr: 89 },
+  { id: 270409, name: 'Sávio', team: 'MAN CITY', pos: 'DEL', ovr: 81 },
+  { id: 240638, name: 'Tijjani Reijnders', team: 'MAN CITY', pos: 'MC', ovr: 85 },
+  // MAN UNITED
+  { id: 233731, name: 'Alexander Isak', team: 'MAN UNITED', pos: 'DEL', ovr: 87 },
+  { id: 243647, name: 'Altay Bayındır', team: 'MAN UNITED', pos: 'POR', ovr: 75 },
+  { id: 254088, name: 'Amad Diallo', team: 'MAN UNITED', pos: 'DEL', ovr: 80 },
+  { id: 75087, name: 'Ayden Heaven', team: 'MAN UNITED', pos: 'DEF', ovr: 74 },
+  { id: 243014, name: 'Bryan Mbeumo', team: 'MAN UNITED', pos: 'DEL', ovr: 85 },
+  { id: 278124, name: 'Callum Lacey', team: 'MAN UNITED', pos: 'DEF', ovr: 65 },
+  { id: 234574, name: 'Diogo Dalot', team: 'MAN UNITED', pos: 'DEF', ovr: 78 },
+  { id: 252037, name: 'Fábio Silva', team: 'MAN UNITED', pos: 'DEL', ovr: 79 },
+  { id: 235805, name: 'Federico Chiesa', team: 'MAN UNITED', pos: 'DEL', ovr: 80 },
+  { id: 250961, name: 'Joshua Zirkzee', team: 'MAN UNITED', pos: 'DEL', ovr: 77 },
+  { id: 212194, name: 'Julian Brandt', team: 'MAN UNITED', pos: 'MC', ovr: 82 },
+  { id: 269136, name: 'Kobbie Mainoo', team: 'MAN UNITED', pos: 'MC', ovr: 79 },
+  { id: 269087, name: 'Leny Yoro', team: 'MAN UNITED', pos: 'DEF', ovr: 78 },
+  { id: 239301, name: 'Lisandro Martínez', team: 'MAN UNITED', pos: 'DEF', ovr: 81 },
+  { id: 253306, name: 'Manuel Ugarte', team: 'MAN UNITED', pos: 'MC', ovr: 78 },
+  { id: 231677, name: 'Marcus Rashford', team: 'MAN UNITED', pos: 'DEL', ovr: 82 },
+  { id: 233064, name: 'Mason Mount', team: 'MAN UNITED', pos: 'MC', ovr: 78 },
+  { id: 240243, name: 'Matheus Cunha', team: 'MAN UNITED', pos: 'DEL', ovr: 83 },
+  { id: 235243, name: 'Matthijs de Ligt', team: 'MAN UNITED', pos: 'DEF', ovr: 82 },
+  { id: 236401, name: 'Noussair Mazraoui', team: 'MAN UNITED', pos: 'DEF', ovr: 80 },
+  { id: 277432, name: 'Patrick Dorgu', team: 'MAN UNITED', pos: 'DEF', ovr: 77 },
+  { id: 235407, name: 'Salih Özcan', team: 'MAN UNITED', pos: 'MC', ovr: 74 },
+  { id: 254803, name: 'Senne Lammens', team: 'MAN UNITED', pos: 'POR', ovr: 81 },
+  { id: 238041, name: 'Tyrell Malacia', team: 'MAN UNITED', pos: 'DEF', ovr: 75 },
+  { id: 243715, name: 'William Saliba', team: 'MAN UNITED', pos: 'DEF', ovr: 88 },
+  // MILÁN
+  { id: 235212, name: 'Achraf Hakimi', team: 'MILÁN', pos: 'DEF', ovr: 89 },
+  { id: 210008, name: 'Adrien Rabiot', team: 'MILÁN', pos: 'MC', ovr: 85 },
+  { id: 242664, name: 'Alexis Saelemaekers', team: 'MILÁN', pos: 'DEL', ovr: 80 },
+  { id: 257186, name: 'Ardon Jashari', team: 'MILÁN', pos: 'MC', ovr: 77 },
+  { id: 260592, name: 'Benjamin Šeško', team: 'MILÁN', pos: 'DEL', ovr: 80 },
+  { id: 227796, name: 'Christian Pulisic', team: 'MILÁN', pos: 'DEL', ovr: 85 },
+  { id: 278237, name: 'Davide Bartesaghi', team: 'MILÁN', pos: 'DEF', ovr: 71 },
+  { id: 256630, name: 'Florian Wirtz', team: 'MILÁN', pos: 'MC', ovr: 87 },
+  { id: 239580, name: 'Gleison Bremer', team: 'MILÁN', pos: 'DEF', ovr: 86 },
+  { id: 240277, name: 'Matteo Gabbia', team: 'MILÁN', pos: 'DEF', ovr: 80 },
+  { id: 205431, name: 'Niclas Füllkrug', team: 'MILÁN', pos: 'DEL', ovr: 78 },
+  { id: 237942, name: 'Pervis Estupiñán', team: 'MILÁN', pos: 'DEF', ovr: 79 },
+  { id: 205812, name: 'Pietro Terracciano', team: 'MILÁN', pos: 'POR', ovr: 78 },
+  { id: 213666, name: 'Ruben Loftus-Cheek', team: 'MILÁN', pos: 'MC', ovr: 80 },
+  { id: 253473, name: 'Samuele Ricci', team: 'MILÁN', pos: 'MC', ovr: 79 },
+  { id: 245152, name: 'Santiago Giménez', team: 'MILÁN', pos: 'DEL', ovr: 79 },
+  { id: 279782, name: 'Thierry Athekame', team: 'MILÁN', pos: 'DEL', ovr: 65 },
+  // NAPOLI
+  { id: 243241, name: 'Alessandro Buongiorno', team: 'NAPOLI', pos: 'DEF', ovr: 81 },
+  { id: 225116, name: 'Alex Meret', team: 'NAPOLI', pos: 'POR', ovr: 82 },
+  { id: 244263, name: 'Amir Rrahmani', team: 'NAPOLI', pos: 'DEF', ovr: 83 },
+  { id: 227236, name: 'André-Frank Zambo Anguissa', team: 'NAPOLI', pos: 'MC', ovr: 83 },
+  { id: 245992, name: 'Billy Gilmour', team: 'NAPOLI', pos: 'MC', ovr: 75 },
+  { id: 247851, name: 'Bruno Guimarães', team: 'NAPOLI', pos: 'MC', ovr: 86 },
+  { id: 232411, name: 'Christopher Nkunku', team: 'NAPOLI', pos: 'DEL', ovr: 81 },
+  { id: 236632, name: 'David Neres', team: 'NAPOLI', pos: 'DEL', ovr: 81 },
+  { id: 241390, name: 'Elif Elmas', team: 'NAPOLI', pos: 'MC', ovr: 77 },
+  { id: 247090, name: 'Enzo Fernández', team: 'NAPOLI', pos: 'MC', ovr: 85 },
+  { id: 217870, name: 'Giovanni Di Lorenzo', team: 'NAPOLI', pos: 'DEF', ovr: 83 },
+  { id: 253396, name: 'Giuliano Simeone', team: 'NAPOLI', pos: 'DEL', ovr: 81 },
+  { id: 200752, name: 'Juan Jesús', team: 'NAPOLI', pos: 'DEF', ovr: 75 },
+  { id: 240716, name: 'Matías Olivera', team: 'NAPOLI', pos: 'DEF', ovr: 77 },
+  { id: 216409, name: 'Matteo Politano', team: 'NAPOLI', pos: 'DEL', ovr: 81 },
+  { id: 261865, name: 'Miguel Gutiérrez', team: 'NAPOLI', pos: 'DEF', ovr: 81 },
+  { id: 260908, name: 'Miloš Kerkez', team: 'NAPOLI', pos: 'DEF', ovr: 81 },
+  { id: 259399, name: 'Rasmus Højlund', team: 'NAPOLI', pos: 'DEL', ovr: 78 },
+  { id: 237238, name: 'Scott McTominay', team: 'NAPOLI', pos: 'MC', ovr: 86 },
+  { id: 223848, name: 'Sergej Milinković-Savić', team: 'NAPOLI', pos: 'POR', ovr: 79 },
+  { id: 216435, name: 'Stanislav Lobotka', team: 'NAPOLI', pos: 'MC', ovr: 83 },
+  { id: 203376, name: 'Virgil van Dijk', team: 'NAPOLI', pos: 'DEF', ovr: 88 },
+  // NEWCASTLE
+  { id: 233934, name: 'Aaron Ramsdale', team: 'NEWCASTLE', pos: 'POR', ovr: 77 },
+  { id: 257470, name: 'Anthony Elanga', team: 'NEWCASTLE', pos: 'DEL', ovr: 79 },
+  { id: 242964, name: 'Anthony Gordon', team: 'NEWCASTLE', pos: 'DEL', ovr: 82 },
+  { id: 264309, name: 'Arda Güler', team: 'NEWCASTLE', pos: 'MC', ovr: 83 },
+  { id: 198032, name: 'Dan Burn', team: 'NEWCASTLE', pos: 'DEF', ovr: 80 },
+  { id: 210047, name: 'Fabian Schär', team: 'NEWCASTLE', pos: 'DEF', ovr: 82 },
+  { id: 246863, name: 'Felix Nmecha', team: 'NEWCASTLE', pos: 'MC', ovr: 84 },
+  { id: 234742, name: 'Harvey Barnes', team: 'NEWCASTLE', pos: 'DEL', ovr: 80 },
+  { id: 246923, name: 'Jacob Ramsey', team: 'NEWCASTLE', pos: 'MC', ovr: 77 },
+  { id: 237329, name: 'Joe Willock', team: 'NEWCASTLE', pos: 'MC', ovr: 76 },
+  { id: 223334, name: 'Joelinton', team: 'NEWCASTLE', pos: 'MC', ovr: 81 },
+  { id: 206083, name: 'Josh Murphy', team: 'NEWCASTLE', pos: 'DEL', ovr: 79 },
+  { id: 186345, name: 'Kieran Trippier', team: 'NEWCASTLE', pos: 'DEF', ovr: 79 },
+  { id: 202884, name: 'Leonardo Spinazzola', team: 'NEWCASTLE', pos: 'DEF', ovr: 80 },
+  { id: 177003, name: 'Luka Modrić', team: 'NEWCASTLE', pos: 'MC', ovr: 85 },
+  { id: 256261, name: 'Malick Thiaw', team: 'NEWCASTLE', pos: 'DEF', ovr: 81 },
+  { id: 203841, name: 'Nick Pope', team: 'NEWCASTLE', pos: 'POR', ovr: 79 },
+  { id: 251809, name: 'Sven Botman', team: 'NEWCASTLE', pos: 'DEF', ovr: 81 },
+  { id: 262118, name: 'Tino Livramento', team: 'NEWCASTLE', pos: 'DEF', ovr: 80 },
+  { id: 238794, name: 'Vinícius Júnior', team: 'NEWCASTLE', pos: 'DEL', ovr: 89 },
+  { id: 270519, name: 'William Osula', team: 'NEWCASTLE', pos: 'DEL', ovr: 73 },
+  { id: 234824, name: 'Yoane Wissa', team: 'NEWCASTLE', pos: 'DEL', ovr: 80 },
+  // PSG
+  { id: 233096, name: 'Denzel Dumfries', team: 'PSG', pos: 'DEF', ovr: 84 },
+  { id: 271421, name: 'Désiré Doué', team: 'PSG', pos: 'DEL', ovr: 86 },
+  { id: 256903, name: 'Gonçalo Ramos', team: 'PSG', pos: 'DEL', ovr: 80 },
+  { id: 258781, name: 'Illia Zabarnyi', team: 'PSG', pos: 'DEF', ovr: 80 },
+  { id: 256790, name: 'Jamal Musiala', team: 'PSG', pos: 'MC', ovr: 87 },
+  { id: 247635, name: 'Khvicha Kvaratskhelia', team: 'PSG', pos: 'DEL', ovr: 88 },
+  { id: 260930, name: 'Kiliann Sildillia', team: 'PSG', pos: 'DEF', ovr: 77 },
+  { id: 243780, name: 'Lee Kang-in', team: 'PSG', pos: 'MC', ovr: 80 },
+  { id: 279709, name: 'Lucas Beraldo', team: 'PSG', pos: 'DEF', ovr: 78 },
+  { id: 251752, name: 'Lucas Chevalier', team: 'PSG', pos: 'POR', ovr: 82 },
+  { id: 220814, name: 'Lucas Hernández', team: 'PSG', pos: 'DEF', ovr: 81 },
+  { id: 207865, name: 'Marquinhos', team: 'PSG', pos: 'DEF', ovr: 87 },
+  { id: 248148, name: 'Martín Zubimendi', team: 'PSG', pos: 'MC', ovr: 85 },
+  { id: 240225, name: 'Matvei Safonov', team: 'PSG', pos: 'POR', ovr: 82 },
+  { id: 252145, name: 'Nuno Mendes', team: 'PSG', pos: 'DEF', ovr: 88 },
+  { id: 231443, name: 'Ousmane Dembélé', team: 'PSG', pos: 'DEL', ovr: 90 },
+  { id: 255253, name: 'Vitinha', team: 'PSG', pos: 'MC', ovr: 90 },
+  { id: 256196, name: 'Willian Pacho', team: 'PSG', pos: 'DEF', ovr: 88 },
+  // REAL MADRID
+  { id: 243952, name: 'Andriy Lunin', team: 'REAL MADRID', pos: 'POR', ovr: 80 },
+  { id: 205452, name: 'Antonio Rüdiger', team: 'REAL MADRID', pos: 'DEF', ovr: 84 },
+  { id: 241637, name: 'Aurélien Tchouaméni', team: 'REAL MADRID', pos: 'MC', ovr: 84 },
+  { id: 231410, name: 'Brahim Díaz', team: 'REAL MADRID', pos: 'MC', ovr: 81 },
+  { id: 222509, name: 'Dani Ceballos', team: 'REAL MADRID', pos: 'MC', ovr: 80 },
+  { id: 278349, name: 'Dean Huijsen', team: 'REAL MADRID', pos: 'DEF', ovr: 81 },
+  { id: 240130, name: 'Éder Militão', team: 'REAL MADRID', pos: 'DEF', ovr: 84 },
+  { id: 239053, name: 'Federico Valverde', team: 'REAL MADRID', pos: 'MC', ovr: 89 },
+  { id: 228618, name: 'Ferland Mendy', team: 'REAL MADRID', pos: 'DEF', ovr: 81 },
+  { id: 279173, name: 'Franco Mastantuono', team: 'REAL MADRID', pos: 'MC', ovr: 77 },
+  { id: 231340, name: 'Gonzalo Montiel', team: 'REAL MADRID', pos: 'DEF', ovr: 74 },
+  { id: 212622, name: 'Joshua Kimmich', team: 'REAL MADRID', pos: 'MC', ovr: 89 },
+  { id: 252371, name: 'Jude Bellingham', team: 'REAL MADRID', pos: 'MC', ovr: 89 },
+  { id: 241721, name: 'Rafael Leão', team: 'REAL MADRID', pos: 'DEL', ovr: 84 },
+  { id: 243812, name: 'Rodrygo', team: 'REAL MADRID', pos: 'DEL', ovr: 84 },
+  { id: 192119, name: 'Thibaut Courtois', team: 'REAL MADRID', pos: 'POR', ovr: 90 },
+  { id: 231281, name: 'Trent Alexander-Arnold', team: 'REAL MADRID', pos: 'DEF', ovr: 85 },
+];
+
+// ── Estado ──────────────────────────────────────────────────────────────────
+let stopped = false;
+let currentFilter = 'ALL';
+const statusEl   = document.getElementById('status');
+const progressEl = document.getElementById('progress');
+const gridEl     = document.getElementById('grid');
+const countEl    = document.getElementById('count');
+
+// ── Equipos únicos ──────────────────────────────────────────────────────────
+const teams = ['ALL', 'DORTMUND', ...new Set(PLAYERS.filter(p=>p.team!=='DORTMUND').map(p=>p.team))];
+
+const filtersEl = document.getElementById('filters');
+teams.forEach(t => {
+  const btn = document.createElement('button');
+  btn.className = 'filter-btn' + (t === 'ALL' ? ' active' : '');
+  btn.textContent = t === 'ALL' ? 'Todos' : t;
+  btn.onclick = () => {
+    currentFilter = t;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderGrid();
+  };
+  filtersEl.appendChild(btn);
+});
+
+// ── Renderizar grid ──────────────────────────────────────────────────────────
+function ovrColor(ovr) {
+  if (ovr >= 88) return '#FFE500';
+  if (ovr >= 85) return '#4ade80';
+  if (ovr >= 82) return '#60a5fa';
+  if (ovr >= 78) return '#c084fc';
+  return '#f87171';
+}
+
+function renderGrid() {
+  const players = currentFilter === 'ALL' ? PLAYERS : PLAYERS.filter(p => p.team === currentFilter);
+  countEl.textContent = players.length + ' jugadores';
+  gridEl.innerHTML = '';
+  players.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.id = 'card-' + p.id;
+    card.onclick = () => downloadOne(p);
+    card.title = 'Click para descargar ' + p.name;
+    card.innerHTML = `
+      <img id="img-${p.id}"
+        src="https://cdn.sofifa.net/players/${p.id}/26_60.png"
+        onerror="this.src='https://cdn.sofifa.net/players/${p.id}/25_60.png';this.onerror=()=>{this.src='https://cdn.sofifa.net/players/${p.id}/24_60.png';this.onerror=null;}"
+        crossorigin="anonymous" />
+      <div class="name">${p.name}</div>
+      <div class="ovr" style="color:${ovrColor(p.ovr)}">${p.ovr}</div>
+      <div class="team">${p.team}</div>
+    `;
+    gridEl.appendChild(card);
+  });
+}
+
+renderGrid();
+
+// ── Descarga individual ──────────────────────────────────────────────────────
+// Intenta múltiples proxies CORS públicos — no depende del servidor Next.js
+async function downloadOne(player) {
+  const card  = document.getElementById('card-' + player.id);
+  const badge = document.createElement('div');
+  badge.className = 'badge badge-load';
+  badge.textContent = '↓';
+  card.querySelectorAll('.badge').forEach(b=>b.remove());
+  card.appendChild(badge);
+
+  const id = player.id;
+  const cdnVersions = ['25', '26', '24'];
+
+  // Genera las URLs a intentar en orden de fiabilidad
+  function buildUrls(id) {
+    const urls = [];
+    for (const v of cdnVersions) {
+      // 1. wsrv.nl — proxy público con CORS habilitado, muy estable
+      urls.push(`https://wsrv.nl/?url=cdn.sofifa.net/players/${id}/${v}_60.png&output=png`);
+    }
+    for (const v of cdnVersions) {
+      // 2. corsproxy.io
+      urls.push(`https://corsproxy.io/?https://cdn.sofifa.net/players/${id}/${v}_60.png`);
+    }
+    // 3. Servidor Next.js local (funciona si abres desde localhost:3000)
+    urls.push(`/api/player-img/${id}`);
+    // 4. allorigins como último recurso
+    urls.push(`https://api.allorigins.win/raw?url=https%3A%2F%2Fcdn.sofifa.net%2Fplayers%2F${id}%2F25_60.png`);
+    return urls;
+  }
+
+  for (const url of buildUrls(id)) {
+    try {
+      const res = await fetch(url, {
+        cache: 'no-cache',
+        signal: AbortSignal.timeout(9000),
+      });
+      if (!res.ok) continue;
+      const blob = await res.blob();
+      if (!blob.type.startsWith('image/') && !blob.type.includes('octet')) continue;
+      if (blob.size < 300) continue;
+
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${id}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+      badge.className = 'badge badge-ok';
+      badge.textContent = '✓';
+      return true;
+    } catch { /* siguiente */ }
+  }
+
+  badge.className = 'badge badge-err';
+  badge.textContent = '✗';
+  return false;
+}
+
+// ── Descarga masiva ──────────────────────────────────────────────────────────
+async function downloadAll(filterTeam) {
+  const players = filterTeam ? PLAYERS.filter(p => p.team === filterTeam) : PLAYERS;
+  stopped = false;
+  document.getElementById('btnAll').disabled  = true;
+  document.getElementById('btnBVB').disabled  = true;
+  document.getElementById('btnStop').style.display = 'inline-block';
+
+  let ok = 0, fail = 0;
+  for (let i = 0; i < players.length; i++) {
+    if (stopped) break;
+    const p = players[i];
+    statusEl.innerHTML = `Descargando <b>${p.name}</b> (${i+1}/${players.length})…`;
+    progressEl.style.width = ((i / players.length) * 100) + '%';
+    const result = await downloadOne(p);
+    if (result) ok++; else fail++;
+    await new Promise(r => setTimeout(r, 1000)); // delay para evitar rate limit
+  }
+
+  progressEl.style.width = '100%';
+  statusEl.innerHTML = stopped
+    ? `Parado. <b>${ok}</b> descargadas, <b>${fail}</b> errores.`
+    : `✅ Completado. <b>${ok}</b> descargadas, <b>${fail}</b> errores. Mueve los archivos a <b>/public/players/</b>`;
+  document.getElementById('btnAll').disabled  = false;
+  document.getElementById('btnBVB').disabled  = false;
+  document.getElementById('btnStop').style.display = 'none';
+}
+
+document.getElementById('btnAll').onclick  = () => downloadAll(null);
+document.getElementById('btnBVB').onclick  = () => downloadAll('DORTMUND');
+document.getElementById('btnStop').onclick = () => { stopped = true; };
+</script>
+</body>
+</html>
