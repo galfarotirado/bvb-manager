@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
-const RESERVA_CLUB = 10; // Mandatory 10M per season
 
 export default function EconomiaPage() {
   const [economia, setEconomia] = useState(null);
@@ -62,9 +61,9 @@ export default function EconomiaPage() {
   const presupuestoManual = economia?.presupuesto_actual != null ? parseFloat(economia.presupuesto_actual) : null;
   const inactivoManual    = economia?.inactivo_manual    != null ? parseFloat(economia.inactivo_manual)    : null;
   const budgetInicial = parseFloat(economia?.budget_inicial || 82);
-  const disponible = presupuestoManual != null ? presupuestoManual : (budgetInicial + ingresos - gastos - RESERVA_CLUB);
+  const disponible = presupuestoManual != null ? presupuestoManual : (budgetInicial + ingresos - gastos);
   const pendienteTotal = inactivoManual != null ? inactivoManual : pendiente;
-  const pct = Math.max(0, Math.min(100, (disponible / (disponible + gastos + RESERVA_CLUB)) * 100));
+  const pct = Math.max(0, Math.min(100, (disponible / (disponible + pendienteTotal)) * 100));
 
   async function liberarClausulazo(id) {
     await supabase.from('bvb_traspasos').update({ liberado: true }).eq('id', id);
@@ -193,10 +192,10 @@ export default function EconomiaPage() {
                 <p className="font-black text-2xl sm:text-3xl" style={{ color: budgetColor }}>{disponible.toFixed(1)}M</p>
               )}
             </div>
-            {/* Reserva */}
+            {/* Reserva info */}
             <div className="text-center">
-              <p className="section-label mb-1">Reserva club</p>
-              <p className="font-black text-2xl sm:text-3xl text-amber-400">{RESERVA_CLUB}M</p>
+              <p className="section-label mb-1">Reserva (en inactivo)</p>
+              <p className="font-black text-2xl sm:text-3xl text-amber-400">10M</p>
             </div>
             {/* Inactivo — editable */}
             <div className="text-center">
@@ -227,15 +226,12 @@ export default function EconomiaPage() {
             </div>
             <div className="h-3 bg-bvb-black rounded-full overflow-hidden flex">
               <div className="h-full transition-all duration-700"
-                style={{ width: `${Math.max(0,(RESERVA_CLUB/(disponible+RESERVA_CLUB+pendienteTotal))*100)}%`, background: '#fbbf24' }} />
+                style={{ width: `${Math.max(0,(pendienteTotal/(disponible+pendienteTotal))*100)}%`, background: '#f59e0b' }} />
               <div className="h-full transition-all duration-700"
-                style={{ width: `${Math.max(0,(pendienteTotal/(disponible+RESERVA_CLUB+pendienteTotal))*100)}%`, background: '#f59e0b' }} />
-              <div className="h-full transition-all duration-700"
-                style={{ width: `${Math.max(0,(disponible/(disponible+RESERVA_CLUB+pendienteTotal))*100)}%`, background: budgetColor, boxShadow: `0 0 10px ${budgetColor}60` }} />
+                style={{ width: `${Math.max(0,(disponible/(disponible+pendienteTotal))*100)}%`, background: budgetColor, boxShadow: `0 0 10px ${budgetColor}60` }} />
             </div>
             <div className="flex justify-between text-[10px] text-bvb-muted">
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />Reserva {RESERVA_CLUB}M</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-500 inline-block" />Inactivo {pendienteTotal.toFixed(1)}M</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-500 inline-block" />Inactivo (incl. 10M reserva) {pendienteTotal.toFixed(1)}M</span>
               <span className="flex items-center gap-1" style={{ color: budgetColor }}><span className="w-2 h-2 rounded-full inline-block" style={{ background: budgetColor }} />Libre {disponible.toFixed(1)}M</span>
             </div>
             {disponible < 5 && (

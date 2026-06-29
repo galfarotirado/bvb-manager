@@ -5,7 +5,7 @@ import ClubLogo from '@/components/ClubLogo';
 
 async function getData() {
   const [plantilla, equipos, traspasos, liga] = await Promise.all([
-    supabase.from('bvb_plantilla').select('*').order('ovr', { ascending: false }),
+    supabase.from('liga_jugadores').select('*').eq('equipo', 'DORTMUND').order('ovr', { ascending: false }),
     supabase.from('bvb_equipos').select('*').eq('equipo', 'DORTMUND').single(),
     supabase.from('bvb_traspasos').select('*').or('equipo_destino.eq.DORTMUND,equipo_origen.eq.DORTMUND').order('id', { ascending: false }).limit(8),
     supabase.from('bvb_equipos').select('ranking,equipo,manager,ovr_medio,ovr_mejor,mejor_jugador,sofifa_team_id').order('ranking').limit(5),
@@ -54,12 +54,10 @@ const CANONICAL_SLUG_HOME = {
 
 export default async function Dashboard() {
   const { plantilla, equipo, traspasos, liga } = await getData();
-  const fichajes = plantilla.filter(p => p.es_fichaje);
   const avgOvr = plantilla.length ? (plantilla.reduce((s, p) => s + p.ovr, 0) / plantilla.length).toFixed(1) : 0;
   const top11Ovr = plantilla.length >= 11
     ? (plantilla.slice(0, 11).reduce((s, p) => s + p.ovr, 0) / 11).toFixed(1)
     : avgOvr;
-  const clausulas = plantilla.reduce((s, p) => s + (parseFloat(p.clausula) || 0), 0);
 
   return (
     <div className="space-y-7 animate-slide-up">
@@ -119,8 +117,8 @@ export default async function Dashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard label="OVR Top 11" value={top11Ovr} sub="Media titular" accent />
         <StatCard label="OVR Plantilla" value={avgOvr} sub={`${plantilla.length} jugadores`} />
-        <StatCard label="Cláusulas totales" value={`${clausulas.toFixed(0)}M`} sub="Suma cláusulas plantilla" />
-        <StatCard label="Fichajes S1" value={fichajes.length} sub="Nuevas incorporaciones" />
+        <StatCard label="Jugadores" value={plantilla.length} sub="En plantilla activa" />
+        <StatCard label="Mejor OVR" value={plantilla[0]?.ovr || '—'} sub={plantilla[0]?.jugador || '—'} />
       </div>
 
       {/* Main grid */}
@@ -137,13 +135,12 @@ export default async function Dashboard() {
             {plantilla.map(p => (
               <div key={p.id}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${
-                  p.es_fichaje ? 'bg-bvb-yellow/5 border border-bvb-yellow/20' : 'hover:bg-bvb-card-hover'
+                  'hover:bg-bvb-card-hover'
                 }`}>
-                <PlayerAvatar sofifa_id={p.sofifa_id} nombre={p.nombre} posicion={p.posicion} size="sm" />
+                <PlayerAvatar sofifa_id={p.sofifa_id} nombre={p.jugador} posicion={p.posicion} size="sm" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1">
-                    <p className="font-semibold text-xs text-white truncate">{p.nombre}</p>
-                    {p.es_fichaje && <span className="text-bvb-yellow text-[10px] flex-shrink-0">✦</span>}
+                    <p className="font-semibold text-xs text-white truncate">{p.jugador}</p>
                   </div>
                   <p className="text-bvb-muted text-[10px]">{p.posicion}</p>
                 </div>
@@ -151,7 +148,7 @@ export default async function Dashboard() {
               </div>
             ))}
           </div>
-          <div className="px-5 py-2 border-t border-bvb-border text-bvb-muted text-[10px]">✦ = Fichaje S1</div>
+
         </div>
 
         {/* Right column */}
@@ -248,34 +245,28 @@ export default async function Dashboard() {
       )}
 
       {/* Fichajes spotlight */}
-      {fichajes.length > 0 && (
+      {plantilla.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-black text-white uppercase tracking-wide flex items-center gap-2">
-              <span className="text-bvb-yellow">✦</span> Fichajes Temporada
+              <span className="text-bvb-yellow">★</span> Mejores Jugadores
             </h2>
-            <div className="section-label">NEW SIGNINGS</div>
+            <div className="section-label">TOP OVR</div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {fichajes.map(p => (
+            {plantilla.slice(0, 6).map(p => (
               <div key={p.id}
                 className="relative overflow-hidden rounded-xl border border-bvb-yellow/20 hover:border-bvb-yellow/50 transition-all group"
                 style={{ background: 'linear-gradient(135deg, #1a1a00 0%, #161616 100%)' }}>
                 <div className="stripe-yellow absolute inset-0 opacity-30" />
                 <div className="relative p-4 text-center">
                   <div className="flex justify-center mb-3">
-                    <PlayerAvatar sofifa_id={p.sofifa_id} nombre={p.nombre} posicion={p.posicion} size="lg" />
+                    <PlayerAvatar sofifa_id={p.sofifa_id} nombre={p.jugador} posicion={p.posicion} size="lg" />
                   </div>
-                  <p className="font-black text-white text-xs leading-tight uppercase tracking-wide truncate">{p.nombre}</p>
+                  <p className="font-black text-white text-xs leading-tight uppercase tracking-wide truncate">{p.jugador}</p>
                   <p className="text-bvb-muted text-[10px] mt-0.5">{p.posicion}</p>
                   <p className="font-black text-2xl mt-2" style={{ color: ovrColor(p.ovr) }}>{p.ovr}</p>
-                  <span className={`text-[9px] mt-1 inline-block px-2 py-0.5 rounded font-black uppercase tracking-widest ${
-                    p.tipo_fichaje === 'clausulazo' ? 'badge-yellow' :
-                    p.tipo_fichaje === 'intercambio' ? 'badge-purple' : 'badge-blue'
-                  }`}>
-                    {p.tipo_fichaje === 'clausulazo' ? '⚡ Clausulazo' :
-                     p.tipo_fichaje === 'intercambio' ? '🔀 Swap' : '💰 Traspaso'}
-                  </span>
+                  {p.potencial && <p className="text-green-400 text-[10px] mt-1">POT: {p.potencial}</p>}
                 </div>
               </div>
             ))}
