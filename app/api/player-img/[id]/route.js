@@ -41,11 +41,12 @@ async function cropFaceFromCard(cardBuf) {
     const w = meta.width || 512;
     const h = meta.height || 512;
 
-    // Crop face+shoulders: skip top card frame (~3%), take 55% of height, 80% width centered
-    const left   = Math.floor(w * 0.10);
-    const top    = Math.floor(h * 0.03);
-    const width  = Math.floor(w * 0.80);
-    const height = Math.floor(h * 0.55);
+    // Crop face+chest: centered horizontally, top 65% of card height
+    // This gives face+shoulders+upper chest so the face doesn't fill 100% of the circle
+    const left   = Math.floor(w * 0.12);
+    const top    = Math.floor(h * 0.02);
+    const width  = Math.floor(w * 0.76);
+    const height = Math.floor(h * 0.62);
 
     const cropped = await sharp(buf)
       .extract({ left, top, width, height })

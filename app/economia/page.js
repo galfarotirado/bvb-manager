@@ -18,6 +18,10 @@ export default function EconomiaPage() {
   const [editingBudget, setEditingBudget] = useState(false);
   const [editBudgetVal, setEditBudgetVal] = useState('');
   const [savingBudget, setSavingBudget]   = useState(false);
+  const [editingDisp, setEditingDisp]     = useState(false);
+  const [editDispVal, setEditDispVal]     = useState('');
+  const [editingInact, setEditingInact]   = useState(false);
+  const [editInactVal, setEditInactVal]   = useState('');
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -54,9 +58,13 @@ export default function EconomiaPage() {
   const gastos   = bvbCompras.reduce((s, t) => s + (parseFloat(t.precio) || 0), 0);
   const pendiente = clausulazosInactivos.reduce((s, t) => s + (parseFloat(t.precio) || 0), 0);
 
+  // Si hay presupuesto_actual manual, usarlo directamente; si no, calcular desde budget_inicial
+  const presupuestoManual = economia?.presupuesto_actual != null ? parseFloat(economia.presupuesto_actual) : null;
+  const inactivoManual    = economia?.inactivo_manual    != null ? parseFloat(economia.inactivo_manual)    : null;
   const budgetInicial = parseFloat(economia?.budget_inicial || 82);
-  const disponible = budgetInicial + ingresos - gastos - RESERVA_CLUB;
-  const pct = Math.max(0, Math.min(100, (disponible / budgetInicial) * 100));
+  const disponible = presupuestoManual != null ? presupuestoManual : (budgetInicial + ingresos - gastos - RESERVA_CLUB);
+  const pendienteTotal = inactivoManual != null ? inactivoManual : pendiente;
+  const pct = Math.max(0, Math.min(100, (disponible / (disponible + gastos + RESERVA_CLUB)) * 100));
 
   async function liberarClausulazo(id) {
     await supabase.from('bvb_traspasos').update({ liberado: true }).eq('id', id);
@@ -76,6 +84,22 @@ export default function EconomiaPage() {
     setEconomia(prev => ({ ...prev, budget_inicial: val }));
     setEditingBudget(false);
     setSavingBudget(false);
+  }
+
+  async function saveDisponible() {
+    const val = parseFloat(editDispVal);
+    if (isNaN(val) || val < 0) return;
+    await supabase.from('bvb_economia').update({ presupuesto_actual: val }).eq('id', 1);
+    setEconomia(prev => ({ ...prev, presupuesto_actual: val }));
+    setEditingDisp(false);
+  }
+
+  async function saveInactivo() {
+    const val = parseFloat(editInactVal);
+    if (isNaN(val) || val < 0) return;
+    await supabase.from('bvb_economia').update({ inactivo_manual: val }).eq('id', 1);
+    setEconomia(prev => ({ ...prev, inactivo_manual: val }));
+    setEditingInact(false);
   }
 
   async function saveNotas() {
@@ -149,44 +173,50 @@ export default function EconomiaPage() {
         style={{ background: 'linear-gradient(135deg, rgba(255,229,0,0.07) 0%, #111 100%)' }}>
         <div className="stripe-yellow absolute inset-0 opacity-30" />
         <div className="relative">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
-            {/* Presupuesto inicial — editable */}
+          <div className="grid grid-cols-3 gap-4 mb-5">
+            {/* Disponible — editable directo */}
             <div className="text-center">
               <div className="flex items-center justify-center gap-1 mb-1">
-                <p className="section-label">Presupuesto inicial</p>
-                <button
-                  onClick={() => { setEditBudgetVal(String(budgetInicial)); setEditingBudget(true); }}
-                  className="text-bvb-muted hover:text-bvb-yellow transition-colors text-[10px] leading-none"
-                  title="Editar presupuesto">✏️</button>
+                <p className="section-label">Disponible</p>
+                <button onClick={() => { setEditDispVal(String(disponible.toFixed(1))); setEditingDisp(true); }}
+                  className="text-bvb-muted hover:text-bvb-yellow transition-colors text-[10px]" title="Editar">✏️</button>
               </div>
-              {editingBudget ? (
+              {editingDisp ? (
                 <div className="flex items-center justify-center gap-1">
-                  <input
-                    type="number" step="0.1" value={editBudgetVal}
-                    onChange={e => setEditBudgetVal(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') saveBudget(); if (e.key === 'Escape') setEditingBudget(false); }}
-                    autoFocus
-                    className="w-20 bg-bvb-black border border-bvb-yellow text-white text-center font-black text-lg rounded px-1 py-0.5 outline-none"
-                  />
-                  <button onClick={saveBudget} disabled={savingBudget}
-                    className="text-[10px] font-black px-1.5 py-1 rounded bg-bvb-yellow text-black disabled:opacity-50">✓</button>
-                  <button onClick={() => setEditingBudget(false)}
-                    className="text-[10px] font-black px-1.5 py-1 rounded bg-bvb-card border border-bvb-border text-bvb-muted">✕</button>
+                  <input type="number" step="0.1" value={editDispVal} onChange={e => setEditDispVal(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveDisponible(); if (e.key === 'Escape') setEditingDisp(false); }}
+                    autoFocus className="w-20 bg-bvb-black border border-bvb-yellow text-white text-center font-black text-lg rounded px-1 py-0.5 outline-none" />
+                  <button onClick={saveDisponible} className="text-[10px] font-black px-1.5 py-1 rounded bg-bvb-yellow text-black">✓</button>
+                  <button onClick={() => setEditingDisp(false)} className="text-[10px] px-1.5 py-1 rounded bg-bvb-card border border-bvb-border text-bvb-muted">✕</button>
                 </div>
               ) : (
-                <p className="font-black text-xl sm:text-2xl text-white">{budgetInicial}M</p>
+                <p className="font-black text-2xl sm:text-3xl" style={{ color: budgetColor }}>{disponible.toFixed(1)}M</p>
               )}
             </div>
-            {[
-              { label: 'Ingresos activos',    value: `+${ingresos}M`,      color: '#4ade80' },
-              { label: 'Gastos',              value: `-${gastos}M`,         color: '#f87171' },
-              { label: 'Reserva club (fija)', value: `-${RESERVA_CLUB}M`,  color: '#fbbf24' },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="text-center">
-                <p className="section-label mb-1">{label}</p>
-                <p className="font-black text-xl sm:text-2xl" style={{ color }}>{value}</p>
+            {/* Reserva */}
+            <div className="text-center">
+              <p className="section-label mb-1">Reserva club</p>
+              <p className="font-black text-2xl sm:text-3xl text-amber-400">{RESERVA_CLUB}M</p>
+            </div>
+            {/* Inactivo — editable */}
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <p className="section-label">Inactivo 🔒</p>
+                <button onClick={() => { setEditInactVal(String(pendienteTotal.toFixed(1))); setEditingInact(true); }}
+                  className="text-bvb-muted hover:text-bvb-yellow transition-colors text-[10px]" title="Editar">✏️</button>
               </div>
-            ))}
+              {editingInact ? (
+                <div className="flex items-center justify-center gap-1">
+                  <input type="number" step="0.1" value={editInactVal} onChange={e => setEditInactVal(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveInactivo(); if (e.key === 'Escape') setEditingInact(false); }}
+                    autoFocus className="w-20 bg-bvb-black border border-bvb-yellow text-white text-center font-black text-lg rounded px-1 py-0.5 outline-none" />
+                  <button onClick={saveInactivo} className="text-[10px] font-black px-1.5 py-1 rounded bg-bvb-yellow text-black">✓</button>
+                  <button onClick={() => setEditingInact(false)} className="text-[10px] px-1.5 py-1 rounded bg-bvb-card border border-bvb-border text-bvb-muted">✕</button>
+                </div>
+              ) : (
+                <p className="font-black text-2xl sm:text-3xl text-amber-400">+{pendienteTotal.toFixed(1)}M</p>
+              )}
+            </div>
           </div>
 
           {/* Budget bar */}
@@ -197,15 +227,15 @@ export default function EconomiaPage() {
             </div>
             <div className="h-3 bg-bvb-black rounded-full overflow-hidden flex">
               <div className="h-full transition-all duration-700"
-                style={{ width: `${Math.max(0,(gastos/budgetInicial)*100)}%`, background: '#f87171' }} />
+                style={{ width: `${Math.max(0,(RESERVA_CLUB/(disponible+RESERVA_CLUB+pendienteTotal))*100)}%`, background: '#fbbf24' }} />
               <div className="h-full transition-all duration-700"
-                style={{ width: `${Math.max(0,(Math.max(0,disponible)/budgetInicial)*100)}%`, background: budgetColor, boxShadow: `0 0 10px ${budgetColor}60` }} />
+                style={{ width: `${Math.max(0,(pendienteTotal/(disponible+RESERVA_CLUB+pendienteTotal))*100)}%`, background: '#f59e0b' }} />
               <div className="h-full transition-all duration-700"
-                style={{ width: `${Math.max(0,(RESERVA_CLUB/budgetInicial)*100)}%`, background: '#fbbf24' }} />
+                style={{ width: `${Math.max(0,(disponible/(disponible+RESERVA_CLUB+pendienteTotal))*100)}%`, background: budgetColor, boxShadow: `0 0 10px ${budgetColor}60` }} />
             </div>
             <div className="flex justify-between text-[10px] text-bvb-muted">
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400 inline-block" />Gastado {gastos}M</span>
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />Reserva {RESERVA_CLUB}M</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-500 inline-block" />Inactivo {pendienteTotal.toFixed(1)}M</span>
               <span className="flex items-center gap-1" style={{ color: budgetColor }}><span className="w-2 h-2 rounded-full inline-block" style={{ background: budgetColor }} />Libre {disponible.toFixed(1)}M</span>
             </div>
             {disponible < 5 && (
@@ -250,7 +280,7 @@ export default function EconomiaPage() {
                 ))}
               </div>
               <p className="text-amber-400 font-black mt-2">
-                Total pendiente: +{pendiente.toFixed(1)}M
+                Total pendiente: +{pendienteTotal.toFixed(1)}M
               </p>
             </div>
           </div>
@@ -372,7 +402,7 @@ export default function EconomiaPage() {
           <div className="grid grid-cols-2 gap-3 mt-2">
             <div className="bg-bvb-card border border-amber-500/30 rounded-xl p-3 text-center">
               <p className="section-label mb-1">Pendiente próxima ventana</p>
-              <p className="font-black text-xl text-amber-400">+{pendiente.toFixed(1)}M</p>
+              <p className="font-black text-xl text-amber-400">+{pendienteTotal.toFixed(1)}M</p>
             </div>
             <div className="bg-bvb-card border border-green-500/20 rounded-xl p-3 text-center">
               <p className="section-label mb-1">Clausulazo activo</p>
@@ -416,36 +446,4 @@ export default function EconomiaPage() {
                     <p className="text-bvb-muted text-xs">
                       {v.fecha_inicio || '?'} → {v.fecha_fin || '?'}
                     </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => toggleVentana(v.id, v.activa)}
-                    className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded border transition-colors ${
-                      v.activa
-                        ? 'bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30'
-                        : 'bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30'
-                    }`}>{v.activa ? 'Cerrar' : 'Abrir'}</button>
-                  <button onClick={() => deleteVentana(v.id)}
-                    className="text-[10px] font-black uppercase px-2 py-1.5 rounded border border-red-500/20 text-red-500 hover:bg-red-500/10 transition-colors">✕</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Notas tab */}
-      {tab === 'notas' && (
-        <div className="space-y-3">
-          <textarea value={notas} onChange={e => setNotas(e.target.value)} rows={12}
-            placeholder="Notas de temporada: objetivos, negociaciones pendientes, acuerdos verbales..."
-            className="w-full bg-bvb-card border border-bvb-border text-white px-4 py-3 rounded-xl text-sm focus:border-bvb-yellow outline-none resize-none font-mono leading-relaxed" />
-          <button onClick={saveNotas} disabled={savingNotas}
-            className="w-full sm:w-auto py-2.5 px-6 bg-bvb-yellow text-black font-black text-xs uppercase tracking-widest rounded disabled:opacity-50 hover:bg-bvb-yellow-dim transition-colors">
-            {savingNotas ? 'Guardando...' : '💾 Guardar Notas'}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
+     
