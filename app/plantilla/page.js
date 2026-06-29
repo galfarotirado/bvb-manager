@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import PlayerAvatar from '@/components/PlayerAvatar';
+import { useToast } from '@/components/Toast';
 
 const POS_ORDER  = ['POR', 'DEF', 'MC', 'DEL'];
 const POS_LABELS = { POR: 'Porteros', DEF: 'Defensas', MC: 'Mediocampistas', DEL: 'Delanteros' };
@@ -318,6 +319,8 @@ export default function Plantilla() {
   const [saving, setSaving]       = useState(false);
   const [showAdd, setShowAdd]     = useState(false);
   const [msg, setMsg]             = useState(null);
+  const [search, setSearch]       = useState('');
+  const globalToast               = useToast();
 
   useEffect(() => { load(); }, []);
 
@@ -348,9 +351,11 @@ export default function Plantilla() {
           : p
       ).sort((a, b) => b.ovr - a.ovr));
       toast('Guardado ✓');
+      globalToast('Jugador guardado correctamente', 'success');
       setEditing(null);
     } else {
       toast('Error al guardar', 'err');
+      globalToast('Error al guardar', 'error');
     }
     setSaving(false);
   }
@@ -361,6 +366,7 @@ export default function Plantilla() {
     if (!error) {
       setPlantilla(prev => prev.filter(x => x.id !== p.id));
       toast(`${p.nombre} eliminado`);
+      globalToast('Jugador eliminado', 'success');
     }
   }
 
@@ -379,8 +385,10 @@ export default function Plantilla() {
       setPlantilla(prev => [...prev, data].sort((a, b) => b.ovr - a.ovr));
       setShowAdd(false);
       toast(`${ligaPlayer.jugador} añadido ✓`);
+      globalToast('Jugador añadido correctamente', 'success');
     } else {
       toast('Error al añadir', 'err');
+      globalToast('Error al guardar', 'error');
     }
     setSaving(false);
   }
@@ -391,8 +399,10 @@ export default function Plantilla() {
     nameSet:   new Set(plantilla.map(p => p.nombre?.toLowerCase()).filter(Boolean)),
   }), [plantilla]);
 
+  const filteredPlantilla = plantilla.filter(p => p.nombre?.toLowerCase().includes(search.toLowerCase()));
+
   const grouped = POS_ORDER.reduce((acc, pos) => {
-    acc[pos] = plantilla.filter(p => p.posicion === pos);
+    acc[pos] = filteredPlantilla.filter(p => p.posicion === pos);
     return acc;
   }, {});
 
@@ -470,6 +480,11 @@ export default function Plantilla() {
         </div>
       )}
 
+      {/* Search */}
+      <input type="text" value={search} onChange={e=>setSearch(e.target.value)}
+        placeholder="Buscar jugador..."
+        className="w-full bg-bvb-card border border-bvb-border text-white px-3 py-2 rounded-lg text-sm focus:border-bvb-yellow outline-none mb-3" />
+
       {/* Players by position */}
       {POS_ORDER.map(pos => {
         const group = grouped[pos];
@@ -499,6 +514,11 @@ export default function Plantilla() {
         <div className="text-center py-16">
           <p className="text-bvb-muted text-lg font-bold">Plantilla vacía</p>
           <p className="text-bvb-muted text-sm mt-1">Pulsa "+ Añadir Jugador" para empezar</p>
+        </div>
+      )}
+      {plantilla.length > 0 && filteredPlantilla.length === 0 && search && (
+        <div className="text-center py-10">
+          <p className="text-bvb-muted font-bold">Sin resultados para "{search}"</p>
         </div>
       )}
 

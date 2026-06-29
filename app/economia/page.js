@@ -195,15 +195,25 @@ export default function EconomiaPage() {
               <span className="section-label">Disponible para fichajes</span>
               <span className="font-black text-lg" style={{ color: budgetColor }}>{disponible.toFixed(1)}M</span>
             </div>
-            <div className="h-3 bg-bvb-black rounded-full overflow-hidden">
-              <div className="h-full rounded-full transition-all duration-700"
-                style={{ width: `${pct}%`, background: budgetColor, boxShadow: `0 0 10px ${budgetColor}60` }} />
+            <div className="h-3 bg-bvb-black rounded-full overflow-hidden flex">
+              <div className="h-full transition-all duration-700"
+                style={{ width: `${Math.max(0,(gastos/budgetInicial)*100)}%`, background: '#f87171' }} />
+              <div className="h-full transition-all duration-700"
+                style={{ width: `${Math.max(0,(Math.max(0,disponible)/budgetInicial)*100)}%`, background: budgetColor, boxShadow: `0 0 10px ${budgetColor}60` }} />
+              <div className="h-full transition-all duration-700"
+                style={{ width: `${Math.max(0,(RESERVA_CLUB/budgetInicial)*100)}%`, background: '#fbbf24' }} />
             </div>
             <div className="flex justify-between text-[10px] text-bvb-muted">
-              <span>0M</span>
-              <span>RESERVA {RESERVA_CLUB}M bloqueada</span>
-              <span>{budgetInicial}M</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400 inline-block" />Gastado {gastos}M</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />Reserva {RESERVA_CLUB}M</span>
+              <span className="flex items-center gap-1" style={{ color: budgetColor }}><span className="w-2 h-2 rounded-full inline-block" style={{ background: budgetColor }} />Libre {disponible.toFixed(1)}M</span>
             </div>
+            {disponible < 5 && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 flex items-center gap-2">
+                <span className="text-red-400">⚠</span>
+                <span className="text-red-400 text-sm font-bold">Presupuesto bajo — quedan menos de 5M disponibles</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

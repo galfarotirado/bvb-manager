@@ -96,6 +96,7 @@ export default function Mercado() {
   const [traspasos, setTraspasos]     = useState([]);
   const [loading, setLoading]         = useState(true);
   const [tab, setTab]                 = useState('bvb');
+  const [viewFilter, setViewFilter]   = useState('todos');
   const [showForm, setShowForm]       = useState(false);
   const [saving, setSaving]           = useState(false);
   const [form, setForm]               = useState(FORM_EMPTY);
@@ -397,36 +398,51 @@ export default function Mercado() {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-bvb-border">
+      {/* View filter tabs */}
+      <div className="flex gap-1 overflow-x-auto no-scrollbar border-b border-bvb-border mb-4">
         {[
-          { key: 'bvb',  label: `BVB (${bvbIn.length + bvbOut.length})` },
-          { key: 'in',   label: `Entradas (${bvbIn.length})` },
-          { key: 'out',  label: `Salidas (${bvbOut.length})` },
-          { key: 'liga', label: `Liga (${liga.length})` },
+          {key:'todos', label:'Todos'},
+          {key:'entradas', label:'Entradas BVB'},
+          {key:'salidas', label:'Salidas BVB'},
+          {key:'liga', label:'Resto liga'},
         ].map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={`px-4 py-2.5 text-xs font-black uppercase tracking-widest transition-all border-b-2 ${
-              tab === t.key ? 'border-bvb-yellow text-bvb-yellow' : 'border-transparent text-bvb-muted hover:text-white'
-            }`}>
+          <button key={t.key} onClick={()=>setViewFilter(t.key)}
+            className={`px-4 py-2.5 text-xs font-black uppercase tracking-widest whitespace-nowrap border-b-2 transition-all ${viewFilter===t.key?'border-bvb-yellow text-bvb-yellow':'border-transparent text-bvb-muted hover:text-white'}`}>
             {t.label}
           </button>
         ))}
       </div>
 
-      {/* Lista */}
-      <div className="space-y-2">
-        {(() => {
-          const list = tab === 'bvb' ? [...bvbIn, ...bvbOut] : tab === 'in' ? bvbIn : tab === 'out' ? bvbOut : liga;
-          if (!list.length) return (
-            <div className="text-center py-14 text-bvb-muted">
-              <div className="text-4xl mb-3">📋</div>
-              <p className="font-bold">Sin movimientos en esta categoría</p>
-            </div>
-          );
-          return list.map(t => <TransferCard key={t.id} t={t} onDelete={deleteTraspaso} />);
-        })()}
+      {/* Summary stats */}
+      <div className="grid grid-cols-3 gap-2 mb-2">
+        <div className="bg-bvb-card border border-bvb-border rounded-xl p-3 text-center">
+          <p className="section-label mb-1">Total</p>
+          <p className="font-black text-xl text-white">{traspasos.length}</p>
+          <p className="text-bvb-muted text-[10px]">movimientos</p>
+        </div>
+        <div className="bg-bvb-card border border-green-500/20 rounded-xl p-3 text-center">
+          <p className="section-label mb-1" style={{color:'#4ade80'}}>Gastado</p>
+          <p className="font-black text-xl text-green-400">{gastoTotal.toFixed(0)}M</p>
+          <p className="text-bvb-muted text-[10px]">en fichajes BVB</p>
+        </div>
+        <div className="bg-bvb-card border border-red-500/20 rounded-xl p-3 text-center">
+          <p className="section-label mb-1" style={{color:'#f87171'}}>Ingresado</p>
+          <p className="font-black text-xl text-red-400">+{ingresoTotal.toFixed(0)}M</p>
+          <p className="text-bvb-muted text-[10px]">por ventas BVB</p>
+        </div>
       </div>
+
+      {/* Transfer list filtered */}
+      {(() => {
+        const display = viewFilter === 'entradas' ? bvbIn
+          : viewFilter === 'salidas' ? bvbOut
+          : viewFilter === 'liga' ? liga
+          : traspasos;
+        if (display.length === 0) return (
+          <p className="text-center text-bvb-muted py-10 text-sm">No hay movimientos en esta categoría</p>
+        );
+        return <div className="space-y-2">{display.map(t => <TransferCard key={t.id} t={t} onDelete={deleteTraspaso} />)}</div>;
+      })()}
     </div>
   );
 }

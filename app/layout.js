@@ -1,6 +1,7 @@
 import './globals.css';
 import Navbar from '@/components/Navbar';
 import PwaRegister from '@/components/PwaRegister';
+import { ToastProvider } from '@/components/Toast';
 
 export const metadata = {
   title: 'BVB Manager — CAYR S1',
@@ -40,7 +41,7 @@ export default function RootLayout({ children }) {
         <Navbar />
         {/* pb-20 on mobile to clear the fixed bottom nav bar */}
         <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 pb-20 md:pb-6">
-          {children}
+          <ToastProvider>{children}</ToastProvider>
         </main>
       </body>
     </html>

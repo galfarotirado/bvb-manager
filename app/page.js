@@ -1,14 +1,16 @@
 export const dynamic = 'force-dynamic';
 import { supabase } from '@/lib/supabase';
 import PlayerAvatar from '@/components/PlayerAvatar';
+import ClubLogo from '@/components/ClubLogo';
 
 async function getData() {
-  const [plantilla, equipos, traspasos] = await Promise.all([
+  const [plantilla, equipos, traspasos, liga] = await Promise.all([
     supabase.from('bvb_plantilla').select('*').order('ovr', { ascending: false }),
     supabase.from('bvb_equipos').select('*').eq('equipo', 'DORTMUND').single(),
     supabase.from('bvb_traspasos').select('*').or('equipo_destino.eq.DORTMUND,equipo_origen.eq.DORTMUND').order('id', { ascending: false }).limit(8),
+    supabase.from('bvb_equipos').select('ranking,equipo,manager,ovr_medio,ovr_mejor,mejor_jugador,sofifa_team_id').order('ranking').limit(5),
   ]);
-  return { plantilla: plantilla.data || [], equipo: equipos.data, traspasos: traspasos.data || [] };
+  return { plantilla: plantilla.data || [], equipo: equipos.data, traspasos: traspasos.data || [], liga: liga.data || [] };
 }
 
 function ovrColor(ovr) {
@@ -36,8 +38,22 @@ function StatCard({ label, value, sub, accent = false }) {
   );
 }
 
+const TEAM_COLORS_HOME = {
+  'DORTMUND':'#FFE500','PSG':'#004170','REAL MADRID':'#FEBE10','FC BARCELONA':'#A50044',
+  'LIVERPOOL':'#C8102E','ARSENAL':'#EF0107','BAYERN MUNICH':'#DC052D','MAN CITY':'#6CABDD',
+  'INTER MILAN':'#010E80','ATLETICO MADRID':'#CB3524','NAPOLI':'#12A0D7','CHELSEA':'#034694',
+  'MILÁN':'#FB090B','BILBAO':'#EE2523','NEWCASTLE':'#241F20','JUVENTUS':'#888888','MAN UNITED':'#DA291C',
+};
+const CANONICAL_SLUG_HOME = {
+  'ATLETICO MADRID':'atletico-madrid','INTER MILAN':'inter-milan','MAN CITY':'man-city',
+  'MAN UNITED':'man-united','NEWCASTLE':'newcastle','DORTMUND':'dortmund','MILÁN':'milan',
+  'FC BARCELONA':'fc-barcelona','REAL MADRID':'real-madrid','PSG':'psg','LIVERPOOL':'liverpool',
+  'ARSENAL':'arsenal','CHELSEA':'chelsea','NAPOLI':'napoli','BILBAO':'bilbao',
+  'JUVENTUS':'juventus','BAYERN MUNICH':'bayern-munich',
+};
+
 export default async function Dashboard() {
-  const { plantilla, equipo, traspasos } = await getData();
+  const { plantilla, equipo, traspasos, liga } = await getData();
   const fichajes = plantilla.filter(p => p.es_fichaje);
   const avgOvr = plantilla.length ? (plantilla.reduce((s, p) => s + p.ovr, 0) / plantilla.length).toFixed(1) : 0;
   const top11Ovr = plantilla.length >= 11
@@ -191,6 +207,45 @@ export default async function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Top 5 Liga */}
+      {liga.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-black text-white uppercase tracking-wide flex items-center gap-2">
+              <span className="text-bvb-yellow">▲</span> Top Liga
+            </h2>
+            <a href="/ranking" className="text-xs text-bvb-yellow hover:underline font-bold tracking-wide uppercase">Ver completo →</a>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+            {liga.map((e, i) => {
+              const color = TEAM_COLORS_HOME[e.equipo] || '#888';
+              const slug = CANONICAL_SLUG_HOME[e.equipo] || e.equipo.toLowerCase().replace(/ /g,'-');
+              const isBVB = e.equipo === 'DORTMUND';
+              return (
+                <a key={e.equipo} href={`/equipos/${slug}`}
+                  className={`flex sm:flex-col items-center sm:items-center gap-3 sm:gap-2 p-3 sm:p-4 rounded-xl border transition-all hover-lift text-center ${
+                    isBVB ? 'border-bvb-yellow/40 bg-bvb-yellow/5' : 'border-bvb-border bg-bvb-card hover:border-bvb-border-bright'
+                  }`}>
+                  <div className="flex items-center gap-2 sm:flex-col sm:gap-1">
+                    <span className={`font-black text-xl sm:text-3xl leading-none ${i===0?'text-bvb-yellow':i===1?'text-gray-300':i===2?'text-amber-600':'text-bvb-muted'}`}>
+                      #{e.ranking}
+                    </span>
+                    <ClubLogo equipo={e.equipo} sofifa_team_id={e.sofifa_team_id} size="md" />
+                  </div>
+                  <div className="flex-1 sm:flex-none">
+                    <p className={`font-black text-xs uppercase tracking-wide leading-tight ${isBVB?'text-bvb-yellow':'text-white'}`}>
+                      {e.equipo === 'FC BARCELONA' ? 'BARÇA' : e.equipo.split(' ')[0]}
+                    </p>
+                    <p className="text-bvb-muted text-[10px] mt-0.5">{e.manager}</p>
+                    <p className="font-black text-sm mt-1" style={{color}}>{e.ovr_medio}</p>
+                  </div>
+                </a>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Fichajes spotlight */}
       {fichajes.length > 0 && (

@@ -37,6 +37,7 @@ function ScoutCard({ o }) {
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
           <span className="font-black text-2xl leading-none" style={{ color: ovrColor(o.ovr) }}>{o.ovr}</span>
+          {o.potencial && <p className="text-green-400 text-[10px] font-bold">↑{o.potencial}</p>}
           <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded"
             style={{ background: `${posColor}20`, color: posColor }}>
             {o.posicion}
@@ -96,6 +97,7 @@ export default function Oportunidades() {
   const [sortBy, setSortBy]               = useState('ovr');
   const [search, setSearch]               = useState('');
   const [viewMode, setViewMode]           = useState('cards');
+  const [minOvr, setMinOvr]               = useState(75);
 
   useEffect(() => {
     // Cargar TODOS los jugadores de la liga excepto el BVB
@@ -112,12 +114,13 @@ export default function Oportunidades() {
   const filtered = useMemo(() => oportunidades
     .filter(o => filterPos === 'ALL' || o.posicion === filterPos)
     .filter(o => !search || o.jugador?.toLowerCase().includes(search.toLowerCase()) || o.equipo?.toLowerCase().includes(search.toLowerCase()))
+    .filter(o => (o.ovr || 0) >= minOvr)
     .sort((a, b) => {
       if (sortBy === 'ovr')      return (b.ovr || 0) - (a.ovr || 0);
       if (sortBy === 'clausula') return parseFloat(a.clausula) - parseFloat(b.clausula);
       return (a.jugador || '').localeCompare(b.jugador || '');
     }),
-    [oportunidades, filterPos, search, sortBy]
+    [oportunidades, filterPos, search, sortBy, minOvr]
   );
 
   const stats = useMemo(() => ({
@@ -201,6 +204,11 @@ export default function Oportunidades() {
             className="px-3 py-2 bg-bvb-card border border-bvb-border text-bvb-muted rounded-lg text-xs font-black hover:border-bvb-yellow hover:text-white transition-all">
             {viewMode === 'cards' ? '☰ Lista' : '⊞ Cards'}
           </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="section-label text-[10px] whitespace-nowrap">OVR mín:</label>
+          <input type="number" min="60" max="95" value={minOvr} onChange={e=>setMinOvr(Number(e.target.value))}
+            className="w-16 bg-bvb-card border border-bvb-border text-white px-2 py-1.5 rounded text-sm text-center focus:border-bvb-yellow outline-none" />
         </div>
       </div>
 

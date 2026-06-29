@@ -64,6 +64,7 @@ export default function EquipoPage({ params }) {
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState('plantilla');
+  const [posFilter, setPosFilter] = useState('TODOS');
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -252,6 +253,7 @@ export default function EquipoPage({ params }) {
           {key:'plantilla', label:`Plantilla (${jugadores.length})`},
           {key:'top', label:'Top 5'},
           {key:'movimientos', label:`Movimientos (${traspasos.length})`},
+          {key:'stats', label:'Estadísticas'},
         ].map(t=>(
           <button key={t.key} onClick={()=>setTab(t.key)}
             className={`px-3 sm:px-4 py-2.5 text-xs font-black uppercase tracking-widest transition-all border-b-2 whitespace-nowrap ${
@@ -264,7 +266,15 @@ export default function EquipoPage({ params }) {
       {/* Plantilla tab */}
       {tab==='plantilla' && (
         <div className="space-y-3">
-          {POS_ORDER.map(pos=>{
+          <div className="flex gap-1 mb-3 flex-wrap">
+            {['TODOS','POR','DEF','MC','DEL'].map(p => (
+              <button key={p} onClick={() => setPosFilter(p)}
+                className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${posFilter===p?'bg-bvb-yellow text-black':'bg-bvb-card border border-bvb-border text-bvb-muted hover:text-white'}`}>
+                {p}
+              </button>
+            ))}
+          </div>
+          {POS_ORDER.filter(pos => posFilter==='TODOS' || posFilter===pos).map(pos=>{
             const group = grouped[pos];
             if (!group?.length) return null;
             return (
@@ -277,13 +287,11 @@ export default function EquipoPage({ params }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                   {group.map(j=>(
                     <div key={j.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-bvb-card border border-bvb-border hover:border-bvb-border-bright transition-all">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0"
-                        style={{ background:`${color}15`, border:`1px solid ${color}30` }}>
-                        {POS_ICONS[j.posicion]||'⚽'}
-                      </div>
+                      <PlayerAvatar sofifa_id={j.sofifa_id} nombre={j.jugador} posicion={j.posicion} size="sm" />
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-white text-xs truncate">{j.jugador}</p>
                         {j.clausula && <p className="text-bvb-muted text-[10px]">Cláusula: {j.clausula}M</p>}
+                        {j.potencial && <p className="text-green-400 text-[10px]">POT: {j.potencial} {j.edad ? `· ${j.edad}a` : ''}</p>}
                       </div>
                       <span className="font-black text-sm flex-shrink-0" style={{color:ovrColor(j.ovr)}}>{j.ovr}</span>
                     </div>
@@ -302,14 +310,39 @@ export default function EquipoPage({ params }) {
             <div key={j.id} className="relative overflow-hidden rounded-xl border p-4 text-center"
               style={{ borderColor:`${color}30`, background:`linear-gradient(135deg,${color}10 0%,#161616 100%)` }}>
               {i===0 && <div className="absolute top-2 right-2 text-bvb-yellow text-xs">★</div>}
-              <div className="w-12 h-12 mx-auto rounded-full flex items-center justify-center text-2xl mb-2"
-                style={{ background:`${color}15`, border:`1px solid ${color}30` }}>
-                {POS_ICONS[j.posicion]||'⚽'}
-              </div>
+              <PlayerAvatar sofifa_id={j.sofifa_id} nombre={j.jugador} posicion={j.posicion} size="lg" />
               <p className="font-black text-white text-xs uppercase leading-tight">{j.jugador}</p>
               <p className="text-bvb-muted text-[10px] mt-0.5">{j.posicion}</p>
               <p className="font-black text-2xl mt-1" style={{color:ovrColor(j.ovr)}}>{j.ovr}</p>
               {j.clausula && <p className="text-bvb-muted text-[10px] mt-0.5">Cláusula: {j.clausula}M</p>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Stats tab */}
+      {tab==='stats' && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {POS_ORDER.map(pos => {
+            const g = jugadores.filter(j => j.posicion===pos);
+            const avg = g.length ? (g.reduce((s,j)=>s+(j.ovr||0),0)/g.length).toFixed(1) : '—';
+            return (
+              <div key={pos} className="bg-bvb-card border border-bvb-border rounded-xl p-4 text-center">
+                <p className="text-2xl mb-1">{POS_ICONS[pos]}</p>
+                <p className="text-bvb-yellow font-black text-xl">{g.length}</p>
+                <p className="section-label">{pos}</p>
+                <p className="text-white text-sm font-bold mt-1">{avg} OVR</p>
+              </div>
+            );
+          })}
+          {[
+            { label: 'Mayor clausula', value: jugadores.length ? `${jugadores.reduce((a,b) => parseFloat(a.clausula||0)>parseFloat(b.clausula||0)?a:b, jugadores[0])?.jugador} (${jugadores.reduce((a,b) => parseFloat(a.clausula||0)>parseFloat(b.clausula||0)?a:b, jugadores[0])?.clausula}M)` : '—' },
+            { label: 'Mayor potencial', value: jugadores.length ? `${[...jugadores].sort((a,b)=>(b.potencial||0)-(a.potencial||0))[0]?.jugador} (${[...jugadores].sort((a,b)=>(b.potencial||0)-(a.potencial||0))[0]?.potencial})` : '—' },
+            { label: 'Más joven', value: jugadores.filter(j=>j.edad).length ? `${[...jugadores].filter(j=>j.edad).sort((a,b)=>a.edad-b.edad)[0]?.jugador} (${[...jugadores].filter(j=>j.edad).sort((a,b)=>a.edad-b.edad)[0]?.edad}a)` : '—' },
+          ].map(s => (
+            <div key={s.label} className="bg-bvb-card border border-bvb-border rounded-xl p-4">
+              <p className="section-label mb-1">{s.label}</p>
+              <p className="text-white text-xs font-bold leading-tight">{s.value}</p>
             </div>
           ))}
         </div>
