@@ -30,7 +30,7 @@ function getInitials(nombre) {
 function getSources(id) {
   if (!id) return [];
   return [
-    `/api/player-img/${id}`,                                                    // 1. API proxy (futbin crop → sofifa 120px)
+    `/players/${id}.png`,                                                        // 1. Local image (public/players/)
     `https://cdn.sofifa.net/players/${id}/25_120.png`,                          // 2. Sofifa 120px FC25 direct
     `https://cdn.sofifa.net/players/${id}/26_120.png`,                          // 3. Sofifa 120px FC26 direct
     `https://wsrv.nl/?url=cdn.sofifa.net/players/${id}/25_120.png&output=png`,  // 4. wsrv.nl 120px proxy
