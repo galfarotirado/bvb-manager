@@ -24,16 +24,16 @@ function getInitials(nombre) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-// Source order: API proxy first (returns real face crop from futbin+sharp),
-// then sofifa CDN direct (fast but may return generic silhouette),
-// then wsrv.nl as final fallback.
+// Source order: API proxy (futbin crop or sofifa 120px server-side),
+// then sofifa 120px in browser, then wsrv.nl proxy.
+// If API returns 404, it means no real face was found → show initials.
 function getSources(id) {
   if (!id) return [];
   return [
-    `/api/player-img/${id}`,                                        // 1. API proxy (futbin→sharp face crop)
-    `https://cdn.sofifa.net/players/${id}/25_60.png`,               // 2. Sofifa FC25 direct
-    `https://cdn.sofifa.net/players/${id}/26_60.png`,               // 3. Sofifa FC26 direct
-    `https://wsrv.nl/?url=cdn.sofifa.net/players/${id}/25_60.png`,  // 4. wsrv.nl proxy
+    `/api/player-img/${id}`,                                                    // 1. API proxy (futbin crop → sofifa 120px)
+    `https://cdn.sofifa.net/players/${id}/25_120.png`,                          // 2. Sofifa 120px FC25 direct
+    `https://cdn.sofifa.net/players/${id}/26_120.png`,                          // 3. Sofifa 120px FC26 direct
+    `https://wsrv.nl/?url=cdn.sofifa.net/players/${id}/25_120.png&output=png`,  // 4. wsrv.nl 120px proxy
   ];
 }
 
