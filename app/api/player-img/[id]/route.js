@@ -33,7 +33,22 @@ async function tryFetch(url, headers, timeoutMs = 5000) {
   }
 }
 
-// Crop face from FIFA futbin card (512×512 full card art)
+// Sofifa 120px portrait images are clean face shots — no cropping needed,
+// just resize to 120x120 centered so the face is perfectly framed.
+async function processPortrait(buf) {
+  try {
+    const resized = await sharp(Buffer.from(buf))
+      .resize(120, 120, { fit: 'cover', position: 'top' })
+      .png()
+      .toBuffer();
+    return resized;
+  } catch {
+    return null;
+  }
+}
+
+// Crop face from FIFA futbin card (512×512 full card art).
+// Used only as fallback when sofifa has no image.
 async function cropFaceFromCard(cardBuf) {
   try {
     const buf = Buffer.from(cardBuf);
@@ -41,28 +56,33 @@ async function cropFaceFromCard(cardBuf) {
     const w = meta.width || 512;
     const h = meta.height || 512;
 
-    // Crop face+chest: centered horizontally, top 65% of card height
-    // This gives face+shoulders+upper chest so the face doesn't fill 100% of the circle
-    const left   = Math.floor(w * 0.12);
-    const top    = Math.floor(h * 0.02);
-    const width  = Math.floor(w * 0.76);
-    const height = Math.floor(h * 0.62);
+    // Skip the dark card header frame (≈15% from top), take the face region (40% height)
+    // This avoids capturing dark card art and focuses on the player face
+    const left   = Math.floor(w * 0.15);
+    const top    = Math.floor(h * 0.12);
+    const width  = Math.floor(w * 0.70);
+    const height = Math.floor(h * 0.45);
 
     const cropped = await sharp(buf)
       .extract({ left, top, width, height })
-      .resize(120, 120, { fit: 'cover', position: 'top' })
+      .resize(120, 120, { fit: 'cover', position: 'centre' })
       .png()
       .toBuffer();
 
-    // Reject if result is suspiciously small (blank/generic card)
-    if (cropped.byteLength < 3000) return null;
+    // Reject if too small (blank/generic card) or likely a dark frame
+    if (cropped.byteLength < 4000) return null;
+
+    // Check average brightness — reject if image is mostly dark (card frame artifact)
+    const { data } = await sharp(cropped).grayscale().raw().toBuffer({ resolveWithObject: true });
+    const avg = data.reduce((s, v) => s + v, 0) / data.length;
+    if (avg < 40) return null; // too dark = card frame, not a face
+
     return cropped;
   } catch {
     return null;
   }
 }
 
-// Check sofifa image is a real face (not generic silhouette)
 // Generic sofifa silhouettes at 120px are typically < 6 KB
 const MIN_REAL_FACE_BYTES = 6000;
 
@@ -78,7 +98,33 @@ export async function GET(req, { params }) {
     },
   });
 
-  // 1. Futbin card → sharp crop (best quality: real face, unique per player)
+  // 1. Sofifa 120px via wsrv.nl (best: clean face portrait, CDN-bypass)
+  for (const v of ['25', '26']) {
+    const buf = await tryFetch(
+      `https://wsrv.nl/?url=cdn.sofifa.net/players/${id}/${v}_120.png&output=png`,
+      { 'User-Agent': UA },
+      5000
+    );
+    if (buf && buf.byteLength > MIN_REAL_FACE_BYTES) {
+      const processed = await processPortrait(buf);
+      if (processed) return ok(processed);
+    }
+  }
+
+  // 2. Sofifa 120px direct (may be blocked by CDN hotlinking)
+  for (const v of ['26', '25']) {
+    const buf = await tryFetch(
+      `https://cdn.sofifa.net/players/${id}/${v}_120.png`,
+      { 'User-Agent': UA, 'Referer': 'https://sofifa.com/' },
+      4000
+    );
+    if (buf && buf.byteLength > MIN_REAL_FACE_BYTES) {
+      const processed = await processPortrait(buf);
+      if (processed) return ok(processed);
+    }
+  }
+
+  // 3. Futbin card → sharp crop (fallback: may have dark card art)
   for (const v of ['25', '26']) {
     const cardBuf = await tryFetch(
       `https://cdn.futbin.com/content/fifa${v}/img/players/${id}.png`,
@@ -91,36 +137,6 @@ export async function GET(req, { params }) {
     }
   }
 
-  // 2. Sofifa 120px via wsrv.nl proxy (bypasses CDN hotlink, good quality)
-  for (const v of ['25', '26']) {
-    const buf = await tryFetch(
-      `https://wsrv.nl/?url=cdn.sofifa.net/players/${id}/${v}_120.png&output=png`,
-      { 'User-Agent': UA },
-      5000
-    );
-    if (buf && buf.byteLength > MIN_REAL_FACE_BYTES) return ok(buf);
-  }
-
-  // 3. Sofifa 120px direct (server-side, may be blocked by CDN)
-  for (const v of ['26', '25']) {
-    const buf = await tryFetch(
-      `https://cdn.sofifa.net/players/${id}/${v}_120.png`,
-      { 'User-Agent': UA, 'Referer': 'https://sofifa.com/' },
-      4000
-    );
-    if (buf && buf.byteLength > MIN_REAL_FACE_BYTES) return ok(buf);
-  }
-
-  // 4. Sofifa 60px as last resort — only return if it looks like a real face
-  for (const v of ['25', '26']) {
-    const buf = await tryFetch(
-      `https://wsrv.nl/?url=cdn.sofifa.net/players/${id}/${v}_60.png&output=png`,
-      { 'User-Agent': UA },
-      4000
-    );
-    if (buf && buf.byteLength > 2500) return ok(buf);
-  }
-
-  // Nothing found → 404 (PlayerAvatar will show initials fallback)
+  // Nothing found → 404 (PlayerAvatar shows initials)
   return new NextResponse(null, { status: 404 });
 }
