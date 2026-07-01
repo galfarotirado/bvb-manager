@@ -469,6 +469,94 @@ export default function EconomiaPage() {
           </div>
         </div>
       )}
+
+      {/* Simulador tab */}
+      {tab === 'simulador' && (
+        <div className="space-y-5">
+          <div className="bg-bvb-card border border-bvb-border rounded-xl p-5 space-y-4">
+            <h3 className="font-black text-white text-sm uppercase tracking-widest">Simulador de Fichajes</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="section-label block mb-1">Venta simulada (M)</label>
+                <input
+                  type="number" min="0" step="0.1"
+                  value={simVenta}
+                  onChange={e => setSimVenta(e.target.value)}
+                  placeholder="0"
+                  className="w-full bg-bvb-black border border-bvb-border text-white px-3 py-2.5 rounded-lg text-sm focus:border-green-400 outline-none"
+                />
+                <p className="text-bvb-muted text-[10px] mt-1">Dinero que ingresaría por vender un jugador</p>
+              </div>
+              <div>
+                <label className="section-label block mb-1">Compra simulada (M)</label>
+                <input
+                  type="number" min="0" step="0.1"
+                  value={simCompra}
+                  onChange={e => setSimCompra(e.target.value)}
+                  placeholder="0"
+                  className="w-full bg-bvb-black border border-bvb-border text-white px-3 py-2.5 rounded-lg text-sm focus:border-red-400 outline-none"
+                />
+                <p className="text-bvb-muted text-[10px] mt-1">Costo del jugador que quieres fichar</p>
+              </div>
+            </div>
+
+            {(() => {
+              const venta   = parseFloat(simVenta)  || 0;
+              const compra  = parseFloat(simCompra) || 0;
+              const result  = disponible + venta - compra;
+              const color   = result > 20 ? '#4ade80' : result > 5 ? '#FFE500' : '#f87171';
+              const label   = result > 20 ? '✅ Operación viable' : result > 5 ? '⚠️ Ajustado' : result >= 0 ? '🟡 Muy justo' : '❌ Sin presupuesto';
+              return (
+                <div className="rounded-xl border p-5 text-center space-y-2 transition-all"
+                  style={{ borderColor: `${color}40`, background: `${color}08` }}>
+                  <p className="section-label">Presupuesto resultante</p>
+                  <p className="font-black text-4xl" style={{ color }}>{result.toFixed(1)}M</p>
+                  <p className="font-black text-sm" style={{ color }}>{label}</p>
+                  <div className="flex justify-center gap-6 mt-2 text-xs text-bvb-muted">
+                    <span>Actual: <span className="text-white font-bold">{disponible.toFixed(1)}M</span></span>
+                    {venta > 0 && <span className="text-green-400">+{venta.toFixed(1)}M venta</span>}
+                    {compra > 0 && <span className="text-red-400">-{compra.toFixed(1)}M compra</span>}
+                  </div>
+                </div>
+              );
+            })()}
+
+            <button
+              onClick={() => { setSimVenta(''); setSimCompra(''); }}
+              className="w-full py-2 text-xs font-black uppercase tracking-widest rounded-lg border border-bvb-border text-bvb-muted hover:border-bvb-yellow hover:text-bvb-yellow transition-all">
+              Limpiar simulación
+            </button>
+          </div>
+
+          <div className="bg-bvb-card border border-bvb-border rounded-xl p-4 space-y-2">
+            <p className="section-label">Reglas CAYR — Recordatorio</p>
+            <div className="space-y-1 text-xs text-bvb-muted">
+              <p>• Precio mínimo de compra = cláusula × 2</p>
+              <p>• Precio máximo de compra = cláusula × 4</p>
+              <p>• Clausulazo activado = dinero bloqueado hasta próxima ventana</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notas tab */}
+      {tab === 'notas' && (
+        <div className="space-y-3">
+          <textarea
+            value={notas}
+            onChange={e => setNotas(e.target.value)}
+            rows={12}
+            placeholder="Notas, estrategias, jugadores en el radar..."
+            className="w-full bg-bvb-card border border-bvb-border text-white px-4 py-3 rounded-xl text-sm focus:border-bvb-yellow outline-none resize-none"
+          />
+          <button
+            onClick={saveNotas}
+            disabled={savingNotas}
+            className="w-full sm:w-auto px-6 py-2.5 bg-bvb-yellow text-black font-black text-xs uppercase tracking-widest rounded-lg disabled:opacity-40 hover:bg-bvb-yellow-dim transition-colors">
+            {savingNotas ? 'Guardando...' : 'Guardar notas'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

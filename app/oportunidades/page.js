@@ -69,20 +69,6 @@ function ScoutCard({ o, onCompare }) {
           ⚖ Comparar
         </button>
       )}
-      {/* Compare banner */}
-      {compareA && !compareB && (
-        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3 rounded-2xl border border-bvb-yellow bg-bvb-black shadow-2xl">
-          <span className="text-bvb-yellow text-xs font-black uppercase tracking-widest">⚖ Selecciona otro jugador</span>
-          <span className="text-white text-xs font-bold">{compareA.jugador}</span>
-          <button onClick={() => setCompareA(null)} className="text-bvb-muted hover:text-white text-xs ml-2">✕</button>
-        </div>
-      )}
-
-      {/* Compare modal */}
-      {compareA && compareB && (
-        <PlayerCompare playerA={compareA} playerB={compareB}
-          onClose={() => { setCompareA(null); setCompareB(null); }} />
-      )}
     </div>
   );
 }
@@ -107,20 +93,6 @@ function ScoutRow({ o }) {
         <p className="font-black text-bvb-yellow text-sm">{o.clausula}M</p>
         <p className="text-bvb-muted text-[10px]">{negMin}–{negMax}M neg.</p>
       </div>
-      {/* Compare banner */}
-      {compareA && !compareB && (
-        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3 rounded-2xl border border-bvb-yellow bg-bvb-black shadow-2xl">
-          <span className="text-bvb-yellow text-xs font-black uppercase tracking-widest">⚖ Selecciona otro jugador</span>
-          <span className="text-white text-xs font-bold">{compareA.jugador}</span>
-          <button onClick={() => setCompareA(null)} className="text-bvb-muted hover:text-white text-xs ml-2">✕</button>
-        </div>
-      )}
-
-      {/* Compare modal */}
-      {compareA && compareB && (
-        <PlayerCompare playerA={compareA} playerB={compareB}
-          onClose={() => { setCompareA(null); setCompareB(null); }} />
-      )}
     </div>
   );
 }

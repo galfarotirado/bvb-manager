@@ -40,7 +40,7 @@ function OvrRing({ ovr, size = 'md' }) {
 }
 
 /* ── Player Card ───────────────────────────────────────────────── */
-function PlayerCard({ p, onEdit, onRemove }) {
+function PlayerCard({ p, onEdit, onRemove, onDetail }) {
   const [hover, setHover] = useState(false);
 
   return (
@@ -50,6 +50,7 @@ function PlayerCard({ p, onEdit, onRemove }) {
           ? 'bg-bvb-card border-bvb-yellow/20 hover:border-bvb-yellow/40'
           : 'bg-bvb-card border-bvb-border hover:border-bvb-yellow/30 hover:bg-bvb-card-hover'
       }`}
+      onClick={onDetail}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
@@ -85,14 +86,14 @@ function PlayerCard({ p, onEdit, onRemove }) {
 
       <div className="flex items-center gap-2 flex-shrink-0">
         <div className={`flex gap-1 transition-all ${hover ? 'opacity-100' : 'opacity-0'}`}>
-          <button onClick={onEdit}
+          <button onClick={e => { e.stopPropagation(); onEdit(); }}
             className="p-1.5 rounded-lg border border-bvb-border text-bvb-muted hover:border-bvb-yellow hover:text-bvb-yellow transition-colors"
             title="Editar">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
           </button>
-          <button onClick={onRemove}
+          <button onClick={e => { e.stopPropagation(); onRemove(); }}
             className="p-1.5 rounded-lg border border-bvb-border text-bvb-muted hover:border-red-500 hover:text-red-400 transition-colors"
             title="Eliminar">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -314,14 +315,15 @@ function AddDrawer({ plantillaIds, onAdd, onClose, saving }) {
    MAIN PAGE
    ═══════════════════════════════════════════════════════════════ */
 export default function Plantilla() {
-  const [plantilla, setPlantilla] = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [editing, setEditing]     = useState(null);
-  const [saving, setSaving]       = useState(false);
-  const [showAdd, setShowAdd]     = useState(false);
-  const [msg, setMsg]             = useState(null);
-  const [search, setSearch]       = useState('');
-  const globalToast               = useToast();
+  const [plantilla, setPlantilla]   = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [editing, setEditing]       = useState(null);
+  const [saving, setSaving]         = useState(false);
+  const [showAdd, setShowAdd]       = useState(false);
+  const [msg, setMsg]               = useState(null);
+  const [search, setSearch]         = useState('');
+  const [detailPlayer, setDetailPlayer] = useState(null);
+  const globalToast                 = useToast();
 
   useEffect(() => { load(); }, []);
 
@@ -508,6 +510,7 @@ export default function Plantilla() {
                   key={p.id} p={p}
                   onEdit={() => setEditing(p)}
                   onRemove={() => removePlayer(p)}
+                  onDetail={() => setDetailPlayer(p)}
                 />
               ))}
             </div>
