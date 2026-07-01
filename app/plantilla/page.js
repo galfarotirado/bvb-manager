@@ -45,7 +45,7 @@ function PlayerCard({ p, onEdit, onRemove }) {
 
   return (
     <div
-      className={`relative flex items-center gap-4 p-4 rounded-xl border transition-all cursor-default ${
+      className={`relative flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer ${
         p.es_fichaje
           ? 'bg-bvb-card border-bvb-yellow/20 hover:border-bvb-yellow/40'
           : 'bg-bvb-card border-bvb-border hover:border-bvb-yellow/30 hover:bg-bvb-card-hover'
@@ -179,6 +179,7 @@ function AddDrawer({ plantillaIds, onAdd, onClose, saving }) {
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = useState('');
   const [selected, setSelected]       = useState(null);
+  const [detailPlayer, setDetailPlayer] = useState(null);
   const [form, setForm]               = useState({ ovr: '', clausula: '', posicion: 'DEL', tipo_fichaje: 'compra' });
 
   useEffect(() => {
@@ -442,6 +443,10 @@ export default function Plantilla() {
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-bvb-card border border-bvb-border text-bvb-muted font-black text-xs uppercase tracking-widest rounded hover:border-bvb-yellow hover:text-white transition-colors">
             ⚙ Admin
           </a>
+          <button onClick={() => window.print()}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-bvb-card border border-bvb-border text-bvb-muted font-black text-xs uppercase tracking-widest rounded hover:border-bvb-yellow hover:text-white transition-colors">
+            📄 PDF
+          </button>
         </div>
       </div>
 
@@ -540,6 +545,63 @@ export default function Plantilla() {
           onClose={() => setShowAdd(false)}
           saving={saving}
         />
+      )}
+
+      {/* Player detail modal */}
+      {detailPlayer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.9)' }}
+          onClick={() => setDetailPlayer(null)}>
+          <div className="bg-bvb-card border border-bvb-border rounded-2xl p-6 w-full max-w-sm space-y-5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-4">
+                <PlayerAvatar sofifa_id={detailPlayer.sofifa_id} nombre={detailPlayer.nombre} posicion={detailPlayer.posicion} size="xl" />
+                <div>
+                  <h3 className="font-black text-white text-base uppercase tracking-wide">{detailPlayer.nombre}</h3>
+                  <span className={`text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-widest ${
+                    detailPlayer.posicion==='POR'?'text-amber-400 bg-amber-400/10':
+                    detailPlayer.posicion==='DEF'?'text-blue-400 bg-blue-400/10':
+                    detailPlayer.posicion==='MC'?'text-purple-400 bg-purple-400/10':'text-red-400 bg-red-400/10'
+                  }`}>{detailPlayer.posicion}</span>
+                </div>
+              </div>
+              <button onClick={() => setDetailPlayer(null)} className="text-bvb-muted hover:text-white text-lg">✕</button>
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              {[
+                { label: 'OVR',      value: detailPlayer.ovr,       color: '#FFE500' },
+                { label: 'Potencial',value: detailPlayer.potencial || '—', color: '#4ade80' },
+                { label: 'Edad',     value: detailPlayer.edad ? `${detailPlayer.edad}a` : '—', color: '#60a5fa' },
+              ].map(({ label, value, color }) => (
+                <div key={label} className="bg-bvb-black rounded-xl p-3">
+                  <p className="section-label text-[9px] mb-1">{label}</p>
+                  <p className="font-black text-xl" style={{ color }}>{value}</p>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-2 bg-bvb-black rounded-xl p-4">
+              <div className="flex justify-between items-center">
+                <span className="text-bvb-muted text-xs">Cláusula</span>
+                <span className="font-black text-white text-sm">{detailPlayer.clausula}M</span>
+              </div>
+              {detailPlayer.es_fichaje && (
+                <div className="flex justify-between items-center">
+                  <span className="text-bvb-muted text-xs">Tipo fichaje</span>
+                  <span className={`text-xs font-black px-2 py-0.5 rounded ${
+                    detailPlayer.tipo_fichaje==='clausulazo'?'badge-yellow':
+                    detailPlayer.tipo_fichaje==='intercambio'?'badge-purple':'badge-blue'
+                  }`}>{detailPlayer.tipo_fichaje}</span>
+                </div>
+              )}
+              {detailPlayer.sofifa_id && (
+                <div className="flex justify-between items-center">
+                  <span className="text-bvb-muted text-xs">Sofifa ID</span>
+                  <a href={`https://sofifa.com/player/${detailPlayer.sofifa_id}`} target="_blank"
+                    className="text-bvb-yellow text-xs font-bold hover:underline">{detailPlayer.sofifa_id} ↗</a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -3,9 +3,27 @@ import { supabase } from '@/lib/supabase';
 import ClubLogo from '@/components/ClubLogo';
 import RankingList from '@/components/RankingList';
 
-async function getEquipos() {
-  const { data } = await supabase.from('bvb_equipos').select('*').order('ranking');
-  return data || [];
+async function getData() {
+  const [equiposRes, partidosRes] = await Promise.all([
+    supabase.from('bvb_equipos').select('*').order('ranking'),
+    supabase.from('bvb_partidos').select('equipo_local,equipo_visitante,goles_local,goles_visitante,jugado,jornada').eq('jugado', true),
+  ]);
+  const equipos = equiposRes.data || [];
+  const partidos = partidosRes.data || [];
+
+  // Build forma (last 5 results) per team
+  const forma = {};
+  equipos.forEach(e => { forma[e.equipo] = []; });
+  [...partidos].sort((a,b) => b.jornada - a.jornada).forEach(p => {
+    const gl = p.goles_local, gv = p.goles_visitante;
+    if (gl == null || gv == null) return;
+    const resL = gl > gv ? 'V' : gl < gv ? 'D' : 'E';
+    const resV = gv > gl ? 'V' : gv < gl ? 'D' : 'E';
+    if (forma[p.equipo_local]  && forma[p.equipo_local].length  < 5) forma[p.equipo_local].push(resL);
+    if (forma[p.equipo_visitante] && forma[p.equipo_visitante].length < 5) forma[p.equipo_visitante].push(resV);
+  });
+
+  return { equipos, forma };
 }
 
 const TEAM_COLORS = {
@@ -47,7 +65,7 @@ function teamSlug(name) {
 }
 
 export default async function Ranking() {
-  const equipos = await getEquipos();
+  const { equipos, forma } = await getData();
   const bvb = equipos.find(e => e.equipo === 'DORTMUND');
   const bvbPos = equipos.indexOf(bvb) + 1;
   const maxOvr = Math.max(...equipos.map(e => parseFloat(e.ovr_medio) || 0));
@@ -92,7 +110,7 @@ export default async function Ranking() {
         </a>
       )}
 
-      <RankingList equipos={equipos} />
+      <RankingList equipos={equipos} forma={forma} />
     </div>
   );
 }

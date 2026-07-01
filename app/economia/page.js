@@ -21,6 +21,8 @@ export default function EconomiaPage() {
   const [editDispVal, setEditDispVal]     = useState('');
   const [editingInact, setEditingInact]   = useState(false);
   const [editInactVal, setEditInactVal]   = useState('');
+  const [simVenta, setSimVenta]           = useState('');
+  const [simCompra, setSimCompra]         = useState('');
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -289,6 +291,7 @@ export default function EconomiaPage() {
           { key: 'resumen',   label: 'Movimientos' },
           { key: 'clausulas', label: `Clausulazos recibidos (${clausulazosRecibidos.length})` },
           { key: 'ventanas',  label: `Ventanas (${ventanas.length})` },
+          { key: 'simulador', label: 'Simulador' },
           { key: 'notas',     label: 'Notas' },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}

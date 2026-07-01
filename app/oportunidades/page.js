@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import ClubLogo from '@/components/ClubLogo';
 import PlayerAvatar from '@/components/PlayerAvatar';
+import PlayerCompare from '@/components/PlayerCompare';
 
 function ovrColor(ovr) {
   if (ovr >= 88) return '#FFE500';
@@ -16,7 +17,7 @@ function ovrColor(ovr) {
 const POS_ICONS  = { POR:'🧤', DEF:'🛡️', MC:'⚙️', DEL:'⚡' };
 const POS_COLORS = { POR:'#f59e0b', DEF:'#3b82f6', MC:'#8b5cf6', DEL:'#ef4444' };
 
-function ScoutCard({ o }) {
+function ScoutCard({ o, onCompare }) {
   const negMin = (parseFloat(o.clausula) * 2).toFixed(1);
   const negMax = (parseFloat(o.clausula) * 4).toFixed(1);
   const posColor = POS_COLORS[o.posicion] || '#6b7280';
@@ -62,6 +63,26 @@ function ScoutCard({ o }) {
           SOFIFA ↗
         </a>
       )}
+      {onCompare && (
+        <button onClick={() => onCompare(o)}
+          className="mt-3 w-full py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg border border-bvb-border text-bvb-muted hover:border-bvb-yellow hover:text-bvb-yellow transition-all opacity-0 group-hover:opacity-100">
+          ⚖ Comparar
+        </button>
+      )}
+      {/* Compare banner */}
+      {compareA && !compareB && (
+        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3 rounded-2xl border border-bvb-yellow bg-bvb-black shadow-2xl">
+          <span className="text-bvb-yellow text-xs font-black uppercase tracking-widest">⚖ Selecciona otro jugador</span>
+          <span className="text-white text-xs font-bold">{compareA.jugador}</span>
+          <button onClick={() => setCompareA(null)} className="text-bvb-muted hover:text-white text-xs ml-2">✕</button>
+        </div>
+      )}
+
+      {/* Compare modal */}
+      {compareA && compareB && (
+        <PlayerCompare playerA={compareA} playerB={compareB}
+          onClose={() => { setCompareA(null); setCompareB(null); }} />
+      )}
     </div>
   );
 }
@@ -86,6 +107,20 @@ function ScoutRow({ o }) {
         <p className="font-black text-bvb-yellow text-sm">{o.clausula}M</p>
         <p className="text-bvb-muted text-[10px]">{negMin}–{negMax}M neg.</p>
       </div>
+      {/* Compare banner */}
+      {compareA && !compareB && (
+        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3 rounded-2xl border border-bvb-yellow bg-bvb-black shadow-2xl">
+          <span className="text-bvb-yellow text-xs font-black uppercase tracking-widest">⚖ Selecciona otro jugador</span>
+          <span className="text-white text-xs font-bold">{compareA.jugador}</span>
+          <button onClick={() => setCompareA(null)} className="text-bvb-muted hover:text-white text-xs ml-2">✕</button>
+        </div>
+      )}
+
+      {/* Compare modal */}
+      {compareA && compareB && (
+        <PlayerCompare playerA={compareA} playerB={compareB}
+          onClose={() => { setCompareA(null); setCompareB(null); }} />
+      )}
     </div>
   );
 }
@@ -98,6 +133,14 @@ export default function Oportunidades() {
   const [search, setSearch]               = useState('');
   const [viewMode, setViewMode]           = useState('cards');
   const [minOvr, setMinOvr]               = useState(75);
+  const [compareA, setCompareA]           = useState(null);
+  const [compareB, setCompareB]           = useState(null);
+
+  function handleCompare(player) {
+    if (!compareA) { setCompareA(player); }
+    else if (compareA.id === player.id) { setCompareA(null); }
+    else { setCompareB(player); }
+  }
 
   useEffect(() => {
     // Cargar TODOS los jugadores de la liga excepto el BVB
@@ -223,7 +266,7 @@ export default function Oportunidades() {
       {/* Results */}
       {viewMode === 'cards' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {filtered.map(o => <ScoutCard key={o.id} o={o} />)}
+          {filtered.map(o => <ScoutCard key={o.id} o={o} onCompare={handleCompare} />)}
         </div>
       ) : (
         <div className="bg-bvb-card border border-bvb-border rounded-xl overflow-hidden">
@@ -242,6 +285,20 @@ export default function Oportunidades() {
       <p className="text-bvb-muted text-xs text-center pb-2">
         Reglas CAYR: precio mínimo = cláusula × 2 · máximo = cláusula × 4
       </p>
+      {/* Compare banner */}
+      {compareA && !compareB && (
+        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3 rounded-2xl border border-bvb-yellow bg-bvb-black shadow-2xl">
+          <span className="text-bvb-yellow text-xs font-black uppercase tracking-widest">⚖ Selecciona otro jugador</span>
+          <span className="text-white text-xs font-bold">{compareA.jugador}</span>
+          <button onClick={() => setCompareA(null)} className="text-bvb-muted hover:text-white text-xs ml-2">✕</button>
+        </div>
+      )}
+
+      {/* Compare modal */}
+      {compareA && compareB && (
+        <PlayerCompare playerA={compareA} playerB={compareB}
+          onClose={() => { setCompareA(null); setCompareB(null); }} />
+      )}
     </div>
   );
 }

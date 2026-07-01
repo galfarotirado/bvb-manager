@@ -24,7 +24,7 @@ function ovrColor(ovr) {
   return '#f87171';
 }
 
-export default function RankingList({ equipos }) {
+export default function RankingList({ equipos, forma = {} }) {
   const [search, setSearch] = useState('');
   const maxOvr = Math.max(...equipos.map(e => parseFloat(e.ovr_medio) || 0));
   const filtered = search

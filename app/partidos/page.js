@@ -100,6 +100,14 @@ export default function PartidosPage() {
   const bvbPartidos = partidos.filter(p => p.equipo_local === 'DORTMUND' || p.equipo_visitante === 'DORTMUND');
   const filteredPartidos = filterJornada === 'all' ? partidos : partidos.filter(p => p.jornada === parseInt(filterJornada));
   const bvbStanding = standings.find(s => s.equipo === 'DORTMUND');
+  const proximosBVB = partidos
+    .filter(p => !p.jugado && (p.equipo_local === 'DORTMUND' || p.equipo_visitante === 'DORTMUND'))
+    .sort((a,b) => a.jornada - b.jornada)
+    .slice(0, 5);
+  const proximosTodos = partidos
+    .filter(p => !p.jugado)
+    .sort((a,b) => a.jornada - b.jornada)
+    .slice(0, 10);
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -212,6 +220,7 @@ export default function PartidosPage() {
           { key: 'clasificacion', label: 'Clasificación' },
           { key: 'partidos', label: `Partidos (${partidos.length})` },
           { key: 'bvb', label: `BVB (${bvbPartidos.length})` },
+          { key: 'proximos', label: `Próximos (${proximosTodos.length})` },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`px-4 py-2.5 text-xs font-black uppercase tracking-widest transition-all border-b-2 ${
